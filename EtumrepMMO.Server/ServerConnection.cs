@@ -6,7 +6,7 @@ using System.Diagnostics;
 using System.Collections.Concurrent;
 using Newtonsoft.Json;
 
-namespace Etumrep.Server
+namespace EtumrepMMO.Server
 {
     public class ServerConnection
     {

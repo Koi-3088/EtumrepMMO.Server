@@ -1,7 +1,7 @@
 ﻿using PKHeX.Core;
 using EtumrepMMO.Lib;
 
-namespace Etumrep.Server
+namespace EtumrepMMO.Server
 {
     public class EtumrepUtil
     {

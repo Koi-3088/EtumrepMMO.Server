@@ -1,4 +1,4 @@
-﻿namespace Etumrep.WinForms
+﻿namespace EtumrepMMO.WinForms
 {
     internal static class Program
     {

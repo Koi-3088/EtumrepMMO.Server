@@ -1,4 +1,4 @@
-﻿namespace Etumrep.WinForms
+﻿namespace EtumrepMMO.WinForms
 {
     partial class Main
     {
@@ -52,6 +52,7 @@
             this.Tab_Main.SelectedIndex = 0;
             this.Tab_Main.Size = new System.Drawing.Size(907, 467);
             this.Tab_Main.TabIndex = 0;
+            this.FormClosing += Main_Closing;
             // 
             // Tab_Settings
             // 
@@ -172,7 +173,7 @@
             this.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.MaximizeBox = false;
             this.Name = "Main";
-            this.Text = "Etumrep.Server";
+            this.Text = "EtumrepMMO.Server";
             this.Tab_Main.ResumeLayout(false);
             this.Tab_Settings.ResumeLayout(false);
             this.Tab_Logs.ResumeLayout(false);

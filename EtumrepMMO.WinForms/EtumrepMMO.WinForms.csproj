@@ -7,7 +7,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Platforms>AnyCPU;x64</Platforms>
-    <StartupObject>Etumrep.WinForms.Program</StartupObject>
+    <StartupObject>EtumrepMMO.WinForms.Program</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Etumrep.Server\Etumrep.Server.csproj" />
+    <ProjectReference Include="..\EtumrepMMO.Server\EtumrepMMO.Server.csproj" />
   </ItemGroup>
 
 </Project>

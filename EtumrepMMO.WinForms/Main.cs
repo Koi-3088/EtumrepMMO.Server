@@ -1,7 +1,7 @@
-﻿using Etumrep.Server;
+﻿using EtumrepMMO.Server;
 using Newtonsoft.Json;
 
-namespace Etumrep.WinForms
+namespace EtumrepMMO.WinForms
 {
     public sealed partial class Main : Form
     {
@@ -94,7 +94,7 @@ namespace Etumrep.WinForms
             _ = Task.Run(async () => await Connection.MainAsync(token), token);
         }
 
-        private static string GetConfigPath() => "Config.json";
+        private static string GetConfigPath() => "config.json";
 
         private static JsonSerializerSettings GetSettings() => new()
         {

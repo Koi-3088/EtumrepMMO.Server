@@ -3,7 +3,7 @@ using NLog.Config;
 using NLog.Targets;
 using System.Text;
 
-namespace Etumrep.Server
+namespace EtumrepMMO.Server
 {
     // Mostly borrowed from kwsch's SysBot
     // https://github.com/kwsch/SysBot.NET/blob/master/SysBot.Base/Util/LogUtil.cs
@@ -21,11 +21,11 @@ namespace Etumrep.Server
             Directory.CreateDirectory("logs");
             var logfile = new FileTarget("logfile")
             {
-                FileName = Path.Combine("logs", "Etumrep.Server.txt"),
+                FileName = Path.Combine("logs", "EtumrepMMO.Server.txt"),
                 ConcurrentWrites = true,
                 ArchiveEvery = FileArchivePeriod.Day,
                 ArchiveNumbering = ArchiveNumberingMode.Date,
-                ArchiveFileName = Path.Combine("logs", "Etumrep.Server.{#}.txt"),
+                ArchiveFileName = Path.Combine("logs", "EtumrepMMO.Server.{#}.txt"),
                 ArchiveDateFormat = "yyyy-MM-dd",
                 MaxArchiveFiles = 7,
                 Encoding = Encoding.Unicode,
