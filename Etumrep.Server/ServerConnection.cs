@@ -16,6 +16,9 @@ namespace Etumrep.Server
         private bool IsStopped { get; set; }
         private List<string> HostWhitelist { get; }
         private List<string> UserBlacklist { get; }
+        private string CurrentSeedChecker { get; set; } = "Waiting for users...";
+        private int Progress { get; set; }
+        private bool InQueue { get; set; }
         private static IProgress<(string, int, bool)> UserProgress { get; set; } = default!;
         private ConcurrentQueue<RemoteUser> UserQueue { get; set; } = new();
 
@@ -26,7 +29,7 @@ namespace Etumrep.Server
             HostWhitelist = settings.HostWhitelist;
             UserBlacklist = settings.UserBlacklist;
             UserProgress = progress;
-            Listener = new(IPAddress.Loopback, Port);
+            Listener = new(IPAddress.Any, Port);
         }
 
         internal class RemoteUser
@@ -60,14 +63,22 @@ namespace Etumrep.Server
 
         public async Task Stop()
         {
-            while (!IsStopped)
+            if (!IsStopped)
+            {
+                LogUtil.Log("Stopping the TCP Listener...", "[TCP Listener]");
+                Listener.Stop();
+                IsStopped = true;
                 await Task.Delay(0_050).ConfigureAwait(false);
+            }
         }
 
         public async Task MainAsync(CancellationToken token)
         {
             Listener.Start(100);
+            IsStopped = false;
+
             _ = Task.Run(async () => await RemoteUserQueue(token).ConfigureAwait(false), token);
+            _ = Task.Run(async () => await ReportUserProgress(token).ConfigureAwait(false), token);
             LogUtil.Log("Server initialized, waiting for connections...", "[TCP Listener]");
 
             while (!token.IsCancellationRequested)
@@ -99,21 +110,18 @@ namespace Etumrep.Server
                 LogUtil.Log($"{user.Name} was successfully authenticated, enqueueing...", "[TCP Listener]");
                 UserQueue.Enqueue(user);
             }
-
-            Listener.Stop();
-            IsStopped = true;
         }
 
         private async Task RemoteUserQueue(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
-                var ready = UserQueue.TryDequeue(out var user);
-                if (ready && user is not null)
+                UserQueue.TryDequeue(out var user);
+                if (user is not null)
                 {
-                    var c = UserQueue.Count;
-                    var waiting = $" | {c} {(c is 1 ? "user" : "users")} waiting.";
-                    RemoteUser.Report(user.SeedCheckerName + waiting, 10, true);
+                    CurrentSeedChecker = user.SeedCheckerName;
+                    Progress = 10;
+                    InQueue = true;
 
                     LogUtil.Log($"{user.Name}: Attempting to read PKM data from {user.SeedCheckerName}.", "[UserQueue]");
                     if (!user.Stream.CanRead)
@@ -133,7 +141,7 @@ namespace Etumrep.Server
                         continue;
                     }
 
-                    RemoteUser.Report(user.SeedCheckerName + waiting, 30, true);
+                    Progress = 30;
                     LogUtil.Log($"{user.Name}: Beginning seed calculation for {user.SeedCheckerName}...", "[UserQueue]");
 
                     var sw = new Stopwatch();
@@ -141,8 +149,8 @@ namespace Etumrep.Server
                     var seed = EtumrepUtil.CalculateSeed(user.Buffer, count);
                     sw.Stop();
 
+                    Progress = 80;
                     LogUtil.Log($"{user.Name}: Seed ({seed}) calculation for {user.SeedCheckerName} complete ({sw.Elapsed}). Attempting to send the result...", "[UserQueue]");
-                    RemoteUser.Report(user.SeedCheckerName + waiting, 80, true);
 
                     if (!user.Stream.CanWrite)
                     {
@@ -154,12 +162,17 @@ namespace Etumrep.Server
                     var bytes = BitConverter.GetBytes(seed);
                     await user.Stream.WriteAsync(bytes, token).ConfigureAwait(false);
 
-                    RemoteUser.Report(user.SeedCheckerName + waiting, 100, true);
                     LogUtil.Log($"{user.Name}: Sent results to {user.Name}, removing from queue.", "[UserQueue]");
 
                     DisposeStream(user);
+                    Progress = 100;
+                    await Task.Delay(0_250, token).ConfigureAwait(false);
                 }
-                else await Task.Delay(0_250, token).ConfigureAwait(false);
+                else
+                {
+                    InQueue = false;
+                    await Task.Delay(0_250, token).ConfigureAwait(false);
+                }
             }
         }
 
@@ -224,6 +237,21 @@ namespace Etumrep.Server
             var bytes = BitConverter.GetBytes(true);
             await user.Stream.WriteAsync(bytes, token).ConfigureAwait(false);
             return authObj;
+        }
+
+        private async Task ReportUserProgress(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
+            {
+                await Task.Delay(0_100, token).ConfigureAwait(false);
+                if (InQueue)
+                {
+                    var c = UserQueue.Count;
+                    var msg = $"{CurrentSeedChecker} | {c} {(c is 1 ? "user" : "users")} waiting.";
+                    RemoteUser.Report(msg, Progress, true);
+                }
+                else CurrentSeedChecker = "Waiting for users...";
+            }
         }
 
         private static void DisposeStream(RemoteUser user)

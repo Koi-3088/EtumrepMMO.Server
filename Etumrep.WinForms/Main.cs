@@ -60,11 +60,15 @@ namespace Etumrep.WinForms
         {
             SaveSettings();
             Source.Cancel();
-            Source = new();
-            WasStarted = false;
 
-            async Task WaitUntilDone() { await Connection.Stop().ConfigureAwait(false); }
+            async Task WaitUntilDone()
+            {
+                await Connection.Stop().ConfigureAwait(false);
+                Source = new();
+                WasStarted = false;
+            }
             Task.WhenAny(WaitUntilDone(), Task.Delay(1_000)).ConfigureAwait(true).GetAwaiter().GetResult();
+            LogUtil.Log("Server has been shut down.", "[Stop Button Event]");
         }
 
         private void PostLog(string message, string identity)

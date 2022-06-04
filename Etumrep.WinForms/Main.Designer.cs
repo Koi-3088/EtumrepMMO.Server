@@ -52,7 +52,6 @@
             this.Tab_Main.SelectedIndex = 0;
             this.Tab_Main.Size = new System.Drawing.Size(907, 467);
             this.Tab_Main.TabIndex = 0;
-            this.FormClosing += Main_Closing;
             // 
             // Tab_Settings
             // 
@@ -148,12 +147,14 @@
             // 
             this.ActiveConnection.BackColor = System.Drawing.SystemColors.ControlDark;
             this.ActiveConnection.Enabled = false;
-            this.ActiveConnection.Font = new System.Drawing.Font("Segoe UI Semibold", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
-            this.ActiveConnection.Location = new System.Drawing.Point(257, 14);
+            this.ActiveConnection.Font = new System.Drawing.Font("Cambria", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+            this.ActiveConnection.ForeColor = System.Drawing.SystemColors.ControlText;
+            this.ActiveConnection.Location = new System.Drawing.Point(141, 14);
             this.ActiveConnection.Name = "ActiveConnection";
             this.ActiveConnection.ReadOnly = true;
-            this.ActiveConnection.Size = new System.Drawing.Size(270, 27);
+            this.ActiveConnection.Size = new System.Drawing.Size(386, 25);
             this.ActiveConnection.TabIndex = 4;
+            this.ActiveConnection.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
             this.ActiveConnection.Visible = false;
             // 
             // Main
