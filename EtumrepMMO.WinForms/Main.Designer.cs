@@ -55,7 +55,6 @@
             this.Tab_Main.SelectedIndex = 0;
             this.Tab_Main.Size = new System.Drawing.Size(907, 419);
             this.Tab_Main.TabIndex = 0;
-            this.FormClosing += Main_Closing;
             // 
             // Tab_Settings
             // 
@@ -140,9 +139,9 @@
             // 
             // Bar_Load
             // 
-            this.Bar_Load.Location = new System.Drawing.Point(13, 54);
+            this.Bar_Load.Location = new System.Drawing.Point(12, 54);
             this.Bar_Load.Name = "Bar_Load";
-            this.Bar_Load.Size = new System.Drawing.Size(687, 10);
+            this.Bar_Load.Size = new System.Drawing.Size(688, 10);
             this.Bar_Load.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
             this.Bar_Load.TabIndex = 3;
             this.Bar_Load.Visible = false;
@@ -200,6 +199,7 @@
             this.Controls.Add(this.Button_Start);
             this.Controls.Add(this.Tab_Main);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.Fixed3D;
+            this.FormClosing += Main_FormClosing;
             this.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.MaximizeBox = false;
             this.Name = "Main";

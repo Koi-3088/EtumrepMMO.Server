@@ -7,6 +7,7 @@ namespace EtumrepMMO.WinForms
     {
         private readonly ServerConnection Connection;
         private readonly string ConfigPath = GetConfigPath();
+        private readonly object _logLock = new();
 
         private static CancellationTokenSource Source { get; set; } = new();
         private ServerSettings Settings { get; set; }
@@ -36,12 +37,13 @@ namespace EtumrepMMO.WinForms
                 UpdateLabels(x.Item1, x.Item2, x.Item3);
             });
 
+            RTB_Logs.MaxLength = 32_767;
             Connection = new(Settings, prg, labels);
             Grid_Settings.SelectedObject = Settings;
             LogUtil.Forwarders.Add(PostLog);
         }
 
-        private void Main_Closing(object sender, FormClosingEventArgs e)
+        private void Main_FormClosing(object sender, FormClosingEventArgs e)
         {
             WindowState = FormWindowState.Minimized;
             Stop();
@@ -86,13 +88,22 @@ namespace EtumrepMMO.WinForms
             else UpdateLog(line);
         }
 
+        // Taken from kwsch's SysBot
+        // https://github.com/kwsch/SysBot.NET/commit/27455c4d88f1f9df7dc94dd0e76f3a9bb44b6242
         private void UpdateLog(string line)
         {
-            if (RTB_Logs.Lines.Length > 50_000)
-                RTB_Logs.Lines = Array.Empty<string>();
+            lock (_logLock)
+            {
+                // ghetto truncate
+                var rtb = RTB_Logs;
+                var text = rtb.Text;
+                var max = rtb.MaxLength;
+                if (text.Length + line.Length + 2 >= max)
+                    rtb.Text = text[(max / 4)..];
 
-            RTB_Logs.AppendText(line);
-            RTB_Logs.ScrollToCaret();
+                rtb.AppendText(line);
+                rtb.ScrollToCaret();
+            }
         }
 
         private void RunServer()
