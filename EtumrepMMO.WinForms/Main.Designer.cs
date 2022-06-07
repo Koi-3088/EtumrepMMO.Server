@@ -37,6 +37,9 @@
             this.Button_Stop = new System.Windows.Forms.Button();
             this.Bar_Load = new System.Windows.Forms.ProgressBar();
             this.ActiveConnection = new System.Windows.Forms.TextBox();
+            this.Connections = new System.Windows.Forms.Label();
+            this.Etumreps = new System.Windows.Forms.Label();
+            this.Authenticated = new System.Windows.Forms.Label();
             this.Tab_Main.SuspendLayout();
             this.Tab_Settings.SuspendLayout();
             this.Tab_Logs.SuspendLayout();
@@ -46,11 +49,11 @@
             // 
             this.Tab_Main.Controls.Add(this.Tab_Settings);
             this.Tab_Main.Controls.Add(this.Tab_Logs);
-            this.Tab_Main.Location = new System.Drawing.Point(13, 39);
+            this.Tab_Main.Location = new System.Drawing.Point(14, 87);
             this.Tab_Main.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.Tab_Main.Name = "Tab_Main";
             this.Tab_Main.SelectedIndex = 0;
-            this.Tab_Main.Size = new System.Drawing.Size(907, 467);
+            this.Tab_Main.Size = new System.Drawing.Size(907, 419);
             this.Tab_Main.TabIndex = 0;
             this.FormClosing += Main_Closing;
             // 
@@ -61,7 +64,7 @@
             this.Tab_Settings.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.Tab_Settings.Name = "Tab_Settings";
             this.Tab_Settings.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            this.Tab_Settings.Size = new System.Drawing.Size(899, 439);
+            this.Tab_Settings.Size = new System.Drawing.Size(899, 391);
             this.Tab_Settings.TabIndex = 0;
             this.Tab_Settings.Text = "Settings";
             this.Tab_Settings.UseVisualStyleBackColor = true;
@@ -95,7 +98,7 @@
             this.Tab_Logs.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.Tab_Logs.Name = "Tab_Logs";
             this.Tab_Logs.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            this.Tab_Logs.Size = new System.Drawing.Size(899, 439);
+            this.Tab_Logs.Size = new System.Drawing.Size(899, 391);
             this.Tab_Logs.TabIndex = 1;
             this.Tab_Logs.Text = "Logs";
             this.Tab_Logs.UseVisualStyleBackColor = true;
@@ -109,7 +112,7 @@
             this.RTB_Logs.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.RTB_Logs.Name = "RTB_Logs";
             this.RTB_Logs.ReadOnly = true;
-            this.RTB_Logs.Size = new System.Drawing.Size(891, 433);
+            this.RTB_Logs.Size = new System.Drawing.Size(891, 385);
             this.RTB_Logs.TabIndex = 0;
             this.RTB_Logs.Text = "";
             // 
@@ -137,9 +140,9 @@
             // 
             // Bar_Load
             // 
-            this.Bar_Load.Location = new System.Drawing.Point(533, 21);
+            this.Bar_Load.Location = new System.Drawing.Point(13, 54);
             this.Bar_Load.Name = "Bar_Load";
-            this.Bar_Load.Size = new System.Drawing.Size(156, 15);
+            this.Bar_Load.Size = new System.Drawing.Size(687, 10);
             this.Bar_Load.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
             this.Bar_Load.TabIndex = 3;
             this.Bar_Load.Visible = false;
@@ -150,13 +153,37 @@
             this.ActiveConnection.Enabled = false;
             this.ActiveConnection.Font = new System.Drawing.Font("Cambria", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
             this.ActiveConnection.ForeColor = System.Drawing.SystemColors.ControlText;
-            this.ActiveConnection.Location = new System.Drawing.Point(141, 14);
+            this.ActiveConnection.Location = new System.Drawing.Point(12, 23);
             this.ActiveConnection.Name = "ActiveConnection";
             this.ActiveConnection.ReadOnly = true;
-            this.ActiveConnection.Size = new System.Drawing.Size(386, 25);
+            this.ActiveConnection.Size = new System.Drawing.Size(688, 25);
             this.ActiveConnection.TabIndex = 4;
             this.ActiveConnection.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
             this.ActiveConnection.Visible = false;
+            // 
+            // Connections
+            // 
+            this.Connections.AutoSize = true;
+            this.Connections.Location = new System.Drawing.Point(720, 54);
+            this.Connections.Name = "Connections";
+            this.Connections.Size = new System.Drawing.Size(0, 15);
+            this.Connections.TabIndex = 5;
+            // 
+            // Etumreps
+            // 
+            this.Etumreps.AutoSize = true;
+            this.Etumreps.Location = new System.Drawing.Point(720, 84);
+            this.Etumreps.Name = "Etumreps";
+            this.Etumreps.Size = new System.Drawing.Size(0, 15);
+            this.Etumreps.TabIndex = 6;
+            // 
+            // Authenticated
+            // 
+            this.Authenticated.AutoSize = true;
+            this.Authenticated.Location = new System.Drawing.Point(720, 69);
+            this.Authenticated.Name = "Authenticated";
+            this.Authenticated.Size = new System.Drawing.Size(0, 15);
+            this.Authenticated.TabIndex = 7;
             // 
             // Main
             // 
@@ -164,6 +191,9 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.SystemColors.ControlDark;
             this.ClientSize = new System.Drawing.Size(933, 519);
+            this.Controls.Add(this.Authenticated);
+            this.Controls.Add(this.Etumreps);
+            this.Controls.Add(this.Connections);
             this.Controls.Add(this.ActiveConnection);
             this.Controls.Add(this.Bar_Load);
             this.Controls.Add(this.Button_Stop);
@@ -193,5 +223,8 @@
         private System.Windows.Forms.PropertyGrid Grid_Settings;
         private ProgressBar Bar_Load;
         private TextBox ActiveConnection;
+        private Label Connections;
+        private Label Etumreps;
+        private Label Authenticated;
     }
 }

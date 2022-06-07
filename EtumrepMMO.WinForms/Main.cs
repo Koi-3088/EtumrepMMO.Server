@@ -5,11 +5,12 @@ namespace EtumrepMMO.WinForms
 {
     public sealed partial class Main : Form
     {
-        private static CancellationTokenSource Source = new();
-        private readonly HostSettings Settings;
         private readonly ServerConnection Connection;
-        private static bool WasStarted = false;
         private readonly string ConfigPath = GetConfigPath();
+
+        private static CancellationTokenSource Source { get; set; } = new();
+        private ServerSettings Settings { get; set; }
+        private static bool WasStarted { get; set; }
 
         public Main()
         {
@@ -25,11 +26,17 @@ namespace EtumrepMMO.WinForms
             if (File.Exists(ConfigPath))
             {
                 var text = File.ReadAllText(ConfigPath);
-                Settings = JsonConvert.DeserializeObject<HostSettings>(text, GetSettings()) ?? new HostSettings();
+                Settings = JsonConvert.DeserializeObject<ServerSettings>(text, GetSettings()) ?? new ServerSettings();
+                UpdateLabels(Settings.ConnectionsAccepted, Settings.UsersAuthenticated, Settings.EtumrepsRun);
             }
             else Settings = new();
 
-            Connection = new(Settings, prg);
+            var labels = new Progress<(int, int, int)>(x =>
+            {
+                UpdateLabels(x.Item1, x.Item2, x.Item3);
+            });
+
+            Connection = new(Settings, prg, labels);
             Grid_Settings.SelectedObject = Settings;
             LogUtil.Forwarders.Add(PostLog);
         }
@@ -107,6 +114,13 @@ namespace EtumrepMMO.WinForms
         {
             var lines = JsonConvert.SerializeObject(Settings, GetSettings());
             File.WriteAllText(ConfigPath, lines);
+        }
+
+        private void UpdateLabels(int connections, int authentications, int etumreps)
+        {
+            Connections.Text = connections > 0 ? $"Connections accepted: {connections}" : string.Empty;
+            Authenticated.Text = authentications > 0 ? $"Users authenticated: {authentications}" : string.Empty;
+            Etumreps.Text = etumreps > 0 ? $"EtumrepMMOs run: {etumreps}" : string.Empty;
         }
     }
 }
