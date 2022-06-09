@@ -1,4 +1,4 @@
-﻿namespace EtumrepMMO.WinForms
+﻿namespace EtumrepMMO.Server.WinForms
 {
     partial class Main
     {
@@ -83,7 +83,7 @@
             this.Grid_Settings.PropertySort = System.Windows.Forms.PropertySort.Categorized;
             this.Grid_Settings.SelectedItemWithFocusBackColor = System.Drawing.SystemColors.ButtonFace;
             this.Grid_Settings.SelectedItemWithFocusForeColor = System.Drawing.SystemColors.Highlight;
-            this.Grid_Settings.Size = new System.Drawing.Size(877, 448);
+            this.Grid_Settings.Size = new System.Drawing.Size(877, 378);
             this.Grid_Settings.TabIndex = 0;
             this.Grid_Settings.ViewBackColor = System.Drawing.SystemColors.ControlDark;
             this.Grid_Settings.ViewBorderColor = System.Drawing.SystemColors.ActiveCaptionText;

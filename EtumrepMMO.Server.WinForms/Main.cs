@@ -1,7 +1,6 @@
-﻿using EtumrepMMO.Server;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 
-namespace EtumrepMMO.WinForms
+namespace EtumrepMMO.Server.WinForms
 {
     public sealed partial class Main : Form
     {

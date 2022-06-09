@@ -16,7 +16,7 @@
 
   <ItemGroup>
     <Reference Include="EtumrepMMO.Lib">
-      <HintPath>..\deps\EtumrepMMO.Lib.dll</HintPath>
+      <HintPath>deps\EtumrepMMO.Lib.dll</HintPath>
     </Reference>
   </ItemGroup>
 

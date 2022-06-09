@@ -6,6 +6,7 @@ namespace EtumrepMMO.Server
     {
         public override string ToString() => "Server Settings";
         private const string Startup = nameof(Startup);
+        private const string User = nameof(User);
 
         [Category(Startup), Description("Port.")]
         public int Port { get; set; } = 80;
@@ -28,9 +29,15 @@ namespace EtumrepMMO.Server
         [Category(Startup), Description("EtumrepMMOs successfully run.")]
         public int EtumrepsRun { get; set; }
 
+        [Category(User), Description("Discord user object.")]
         public class DiscordUser
         {
-            public string UserName { get; set; } = string.Empty;
+            public override string ToString() => $"{Username}";
+
+            [Category(User), Description("Discord user's username.")]
+            public string Username { get; set; } = string.Empty;
+
+            [Category(User), Description("Discord user's numerical ID.")]
             public ulong ID { get; set; }
         }
     }

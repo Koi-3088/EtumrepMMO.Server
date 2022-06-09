@@ -5,7 +5,7 @@ VisualStudioVersion = 17.2.32505.173
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EtumrepMMO.Server", "EtumrepMMO.Server\EtumrepMMO.Server.csproj", "{4E491852-8688-4912-8920-DF3F174928E1}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EtumrepMMO.WinForms", "EtumrepMMO.WinForms\EtumrepMMO.WinForms.csproj", "{9144829D-A0D1-4993-8E3B-8DD32A14012C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EtumrepMMO.Server.WinForms", "EtumrepMMO.Server.WinForms\EtumrepMMO.Server.WinForms.csproj", "{9144829D-A0D1-4993-8E3B-8DD32A14012C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
