@@ -9,7 +9,7 @@ Requirements:
 - x64 OS.
 
 Usage:
-- Compile the EtumrepMMO.WinForms project using the x64 build configuration.
+- Compile the EtumrepMMO.Server.WinForms project using the x64 build configuration.
 - Configure settings as desired (clients have to be whitelisted).
 - Configure your router and/or firewall to allow connections to your specified port (may also need to set up port forwarding).
 - Click 'Start' to begin listening for connections.
