@@ -14,6 +14,9 @@ namespace EtumrepMMO.Server
         [Category(Startup), Description("Token for client authorization.")]
         public string Token { get; set; } = string.Empty;
 
+        [Category(Startup), Description("Maximum EtumrepMMO queue size. Server will deny connections until the queue is below this value.")]
+        public int MaxQueue { get; set; } = 10;
+
         [Category(Startup), Description("Whitelisted clients (bot hosts).")]
         public List<DiscordUser> HostWhitelist { get; set; } = new();
 
@@ -39,6 +42,9 @@ namespace EtumrepMMO.Server
 
             [Category(User), Description("Discord user's numerical ID.")]
             public ulong ID { get; set; }
+
+            [Category(User), Description("Discord user's password.")]
+            public string Password { get; set; } = string.Empty;
         }
     }
 }

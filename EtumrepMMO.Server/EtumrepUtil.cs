@@ -5,14 +5,13 @@ namespace EtumrepMMO.Server
 {
     public class EtumrepUtil
     {
-        public static ulong CalculateSeed(byte[] data, int count)
+        public static ulong CalculateSeed(List<PKM> pkms)
         {
-            var list = GetPokeList(data, count);
-            var seed = GroupSeedFinder.FindSeed(list).Seed;
+            var seed = GroupSeedFinder.FindSeed(pkms).Seed;
             return seed;
         }
 
-        private static List<PKM> GetPokeList(byte[] data, int count)
+        public static List<PKM> GetPokeList(byte[] data, int count)
         {
             List<PKM> pks = new();
             for (int i = 0; i < count; i++)
