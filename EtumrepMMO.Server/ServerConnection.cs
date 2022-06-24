@@ -13,27 +13,38 @@ namespace EtumrepMMO.Server
         private ServerSettings Settings { get; }
         private TcpListener Listener { get; set; }
         private BlockingCollection<RemoteUser> UserQueue { get; }
-        private static IProgress<(string, int, bool)> UserProgress { get; set; } = default!;
+        private static IProgress<ConnectionStatus> Status { get; set; } = default!;
+        private static IProgress<string[]> ActiveConnections { get; set; } = default!;
         private static IProgress<(int, int, int)> Labels { get; set; } = default!;
+        private static IProgress<(string, bool)> Queue { get; set; } = default!;
 
-        private string CurrentSeedChecker { get; set; } = "Waiting for users...";
+        private List<string> UsersInQueue { get; set; } = new();
+        private List<string> CurrentlyProcessed { get; set; } = new();
         private bool IsStopped { get; set; }
-        private int Progress { get; set; }
-        private bool InQueue { get; set; }
 
-        public ServerConnection(ServerSettings settings, IProgress<(string, int, bool)> progress, IProgress<(int, int, int)> labels)
+        private readonly SemaphoreSlim _semaphore;
+        private int _entryID;
+
+        public ServerConnection(ServerSettings settings, IProgress<ConnectionStatus> status, IProgress<string[]> connections, IProgress<(int, int, int)> labels, IProgress<(string, bool)> queue)
         {
             Settings = settings;
-            UserProgress = progress;
+            Status = status;
+            ActiveConnections = connections;
             Labels = labels;
+            Queue = queue;
+            UserQueue = new(settings.MaxQueue);
+            _semaphore = new(settings.MaxConcurrent, settings.MaxConcurrent);
+
             Listener = new(IPAddress.Any, settings.Port);
             Listener.Server.ReceiveTimeout = 60_000;
+            Listener.Server.SendTimeout = 60_000;
             Listener.Server.LingerState = new(true, 20);
-            UserQueue = new(settings.MaxQueue);
         }
 
         internal class RemoteUser
         {
+            public override string ToString() => $"{EntryID}. {(UserAuth is not null ? UserAuth.ToString() : "Unknown user")}";
+
             internal RemoteUser(TcpClient client, AuthenticatedStream stream)
             {
                 Client = client;
@@ -45,12 +56,12 @@ namespace EtumrepMMO.Server
             public UserAuth? UserAuth { get; set; } = new();
             public bool IsAuthenticated { get; set; }
             public byte[] Buffer { get; } = new byte[1504];
-
-            public static void Report(string name, int load, bool visible) => UserProgress.Report((name, load, visible));
+            public int EntryID { get; set; }
         }
 
         internal class UserAuth
         {
+            public override string ToString() => $"Host: {HostName} ({HostID}) | User: {SeedCheckerName} ({SeedCheckerID})";
             public string HostName { get; set; } = string.Empty;
             public ulong HostID { get; set; }
             public string HostPassword { get; set; } = string.Empty;
@@ -66,18 +77,22 @@ namespace EtumrepMMO.Server
                 LogUtil.Log("Stopping the TCP Listener...", "[TCP Listener]");
                 Listener.Stop();
                 IsStopped = true;
+                Status.Report(ConnectionStatus.NotConnected);
                 await Task.Delay(0_050).ConfigureAwait(false);
             }
         }
 
         public async Task MainAsync(CancellationToken token)
         {
+            Status.Report(ConnectionStatus.Connecting);
             Listener.Start(100);
             IsStopped = false;
 
             _ = Task.Run(async () => await RemoteUserQueue(token).ConfigureAwait(false), token);
-            _ = Task.Run(async () => await ReportUserProgress(token).ConfigureAwait(false), token);
+            _ = Task.Run(async () => await ReportCurrentlyProcessed(token).ConfigureAwait(false), token);
             _ = Task.Run(async () => await UpdateLabels(token).ConfigureAwait(false), token);
+
+            Status.Report(ConnectionStatus.Connected);
             LogUtil.Log("Server initialized, waiting for connections...", "[TCP Listener]");
 
             while (!token.IsCancellationRequested)
@@ -97,116 +112,133 @@ namespace EtumrepMMO.Server
                     LogUtil.Log("TCP Listener was restarted, waiting for connections...", "[TCP Listener]");
                 }
 
-                if (!pending)
+                if (pending)
                 {
-                    await Task.Delay(0_250, token).ConfigureAwait(false);
-                    continue;
+                    LogUtil.Log("A user is attempting to connect...", "[TCP Listener]");
+                    _ = Task.Run(async () => await AcceptPendingConnection(token).ConfigureAwait(false), token);
                 }
-
-                LogUtil.Log("A user is attempting to connect...", "[TCP Listener]");
-                var remoteClient = await Listener.AcceptTcpClientAsync(token).ConfigureAwait(false);
-                Settings.ConnectionsAccepted += 1;
-
-                LogUtil.Log("A user has connected, authenticating the connection...", "[TCP Listener]");
-                RemoteUser? user = await AuthenticateConnection(remoteClient).ConfigureAwait(false);
-                if (user is null || !user.IsAuthenticated)
-                {
-                    DisposeStream(user);
-                    continue;
-                }
-
-                LogUtil.Log("Connection authenticated, attempting to authenticate the user...", "[TCP Listener]");
-                user.UserAuth = await AuthenticateUser(user, token).ConfigureAwait(false);
-                if (user.UserAuth is null)
-                {
-                    await SendServerConfirmation(user, false, token).ConfigureAwait(false);
-                    DisposeStream(user);
-                    continue;
-                }
-                Settings.UsersAuthenticated += 1;
-
-                bool enqueue = UserQueue.Count < UserQueue.BoundedCapacity;
-                await SendServerConfirmation(user, enqueue, token).ConfigureAwait(false);
-
-                if (enqueue)
-                {
-                    LogUtil.Log($"{user.UserAuth.HostName} ({user.UserAuth.HostID}) was successfully authenticated, enqueueing...", "[TCP Listener]");
-                    UserQueue.Add(user, token);
-                    continue;
-                }
-
-                LogUtil.Log($"{user.UserAuth.HostName} ({user.UserAuth.HostID}) was successfully authenticated but the queue is full, closing the connection...", "[TCP Listener]");
-                DisposeStream(user);
+                await Task.Delay(0_200, token).ConfigureAwait(false);
             }
+        }
+
+        private async Task AcceptPendingConnection(CancellationToken token)
+        {
+            var remoteClient = await Listener.AcceptTcpClientAsync(token).ConfigureAwait(false);
+            Settings.AddConnectionsAccepted();
+
+            LogUtil.Log("A user has connected, authenticating the connection...", "[TCP Listener]");
+            RemoteUser? user = await AuthenticateConnection(remoteClient).ConfigureAwait(false);
+            if (user is null || !user.IsAuthenticated)
+            {
+                DisposeStream(user);
+                return;
+            }
+
+            LogUtil.Log("Connection authenticated, attempting to authenticate the user...", "[TCP Listener]");
+            user.UserAuth = await AuthenticateUser(user, token).ConfigureAwait(false);
+            if (user.UserAuth is null)
+            {
+                await SendServerConfirmation(user, false, token).ConfigureAwait(false);
+                DisposeStream(user);
+                return;
+            }
+            Settings.AddUsersAuthenticated();
+
+            bool enqueue = UserQueue.Count < UserQueue.BoundedCapacity;
+            await SendServerConfirmation(user, enqueue, token).ConfigureAwait(false);
+
+            if (enqueue)
+            {
+                LogUtil.Log($"{user.UserAuth.HostName} ({user.UserAuth.HostID}) was successfully authenticated, enqueueing...", "[TCP Listener]");
+
+                // Increment queue entry ID.
+                user.EntryID = Interlocked.Increment(ref _entryID);
+                ReportUserQueue(user.ToString(), true);
+                UserQueue.Add(user, token);
+                return;
+            }
+
+            LogUtil.Log($"{user.UserAuth.HostName} ({user.UserAuth.HostID}) was successfully authenticated but the queue is full, closing the connection...", "[TCP Listener]");
+            DisposeStream(user);
         }
 
         private async Task RemoteUserQueue(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
-                var user = UserQueue.Take(token);
-                if (user is not null && user.UserAuth is not null)
+                try
                 {
-                    CurrentSeedChecker = user.UserAuth.SeedCheckerName;
-                    Progress = 10;
-                    InQueue = true;
-
-                    LogUtil.Log($"{user.UserAuth.HostName}: Attempting to read PKM data from {user.UserAuth.SeedCheckerName}.", "[User Queue]");
-                    int read, count;
-                    try
-                    {
-                        read = await user.Stream.ReadAsync(user.Buffer, token).ConfigureAwait(false);
-                        count = read / 376;
-
-                        if (read is 0 || count is < 2 || count is > 4)
-                        {
-                            LogUtil.Log($"{user.UserAuth.HostName}: Received an incorrect amount of data from {user.UserAuth.SeedCheckerName}.", "[User Queue]");
-                            DisposeStream(user);
-                            continue;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while reading data from {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[User Queue]");
-                        DisposeStream(user);
-                        continue;
-                    }
-
-                    Progress = 30;
-                    LogUtil.Log($"{user.UserAuth.HostName}: Beginning seed calculation for {user.UserAuth.SeedCheckerName}...", "[User Queue]");
-
-                    var list = EtumrepUtil.GetPokeList(user.Buffer, count);
-                    var sw = new Stopwatch();
-
-                    sw.Start();
-                    var seed = EtumrepUtil.CalculateSeed(list);
-                    sw.Stop();
-
-                    Progress = 80;
-                    Settings.EtumrepsRun += 1;
-                    LogUtil.Log($"{user.UserAuth.HostName}: Seed ({seed}) calculation for {user.UserAuth.SeedCheckerName} complete ({sw.Elapsed}). Attempting to send the result...", "[User Queue]");
-
-                    var bytes = BitConverter.GetBytes(seed);
-                    try
-                    {
-                        await user.Stream.WriteAsync(bytes, token).ConfigureAwait(false);
-                        LogUtil.Log($"{user.UserAuth.HostName}: Results were sent, removing from queue.", "[User Queue]");
-                        Progress = 100;
-                    }
-                    catch (Exception ex)
-                    {
-                        LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while sending results to {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[User Queue]");
-                    }
-
-                    DisposeStream(user);
-                    await Task.Delay(0_250, token).ConfigureAwait(false);
+                    await _semaphore.WaitAsync(token).ConfigureAwait(false);
+                    var user = UserQueue.Take(token);
+                    _ = Task.Run(async () => await RunEtumrepAsync(user, token).ConfigureAwait(false), token);
                 }
-                else
+                catch (Exception ex)
                 {
-                    InQueue = false;
-                    await Task.Delay(0_250, token).ConfigureAwait(false);
+                    LogUtil.Log($"Error occurred when queuing a user:\n{ex.Message}", "[User Queue]");
+                    _semaphore.Release();
                 }
             }
+        }
+
+        private async Task RunEtumrepAsync(RemoteUser user, CancellationToken token)
+        {
+            if (user.UserAuth is null)
+            {
+                LogUtil.Log("UserAuth is null: Something went very, very wrong.", "[User Queue]");
+                DisposeStream(user);
+                return;
+            }
+
+            var checker = $"{user.UserAuth.SeedCheckerName} ({user.UserAuth.SeedCheckerID})";
+            CurrentlyProcessed.Add(checker);
+            LogUtil.Log($"{user.UserAuth.HostName}: Attempting to read PKM data from {user.UserAuth.SeedCheckerName}.", "[User Queue]");
+            int read, count;
+
+            try
+            {
+                read = await user.Stream.ReadAsync(user.Buffer, token).ConfigureAwait(false);
+                count = read / 376;
+
+                if (read is 0 || count is < 2 || count is > 4)
+                {
+                    LogUtil.Log($"{user.UserAuth.HostName}: Received an incorrect amount of data from {user.UserAuth.SeedCheckerName}.", "[User Queue]");
+                    DisposeStream(user);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while reading data from {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[User Queue]");
+                DisposeStream(user);
+                return;
+            }
+            LogUtil.Log($"{user.UserAuth.HostName}: Beginning seed calculation for {user.UserAuth.SeedCheckerName}...", "[User Queue]");
+
+            var list = EtumrepUtil.GetPokeList(user.Buffer, count);
+            var sw = new Stopwatch();
+
+            sw.Start();
+            var seed = EtumrepUtil.CalculateSeed(list);
+            sw.Stop();
+
+            Settings.AddEtumrepsRun();
+            LogUtil.Log($"{user.UserAuth.HostName}: Seed ({seed}) calculation for {user.UserAuth.SeedCheckerName} complete ({sw.Elapsed}). Attempting to send the result...", "[User Queue]");
+
+            var bytes = BitConverter.GetBytes(seed);
+            try
+            {
+                ReportUserQueue(user.ToString(), false);
+                _semaphore.Release();
+                await user.Stream.WriteAsync(bytes, token).ConfigureAwait(false);
+                LogUtil.Log($"{user.UserAuth.HostName}: Results were sent, removing from queue.", "[User Queue]");
+            }
+            catch (Exception ex)
+            {
+                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while sending results to {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[User Queue]");
+            }
+
+            CurrentlyProcessed.Remove(checker);
+            DisposeStream(user);
         }
 
         private static async Task<RemoteUser?> AuthenticateConnection(TcpClient client)
@@ -286,23 +318,13 @@ namespace EtumrepMMO.Server
             }
         }
 
-        private async Task ReportUserProgress(CancellationToken token)
+        private async Task ReportCurrentlyProcessed(CancellationToken token)
         {
-            string msg;
             while (!token.IsCancellationRequested)
             {
                 await Task.Delay(0_100, token).ConfigureAwait(false);
-                var count = UserQueue.Count;
-
-                if (InQueue)
-                {
-                    msg = $"{CurrentSeedChecker} | {count} {(count is 1 ? "user" : "users")} waiting.";
-                    RemoteUser.Report(msg, Progress, true);
-                    continue;
-                }
-
-                msg = $"Waiting for users... | {count} {(count is 1 ? "user" : "users")} waiting.";
-                RemoteUser.Report(msg, Progress, true);
+                var msg = CurrentlyProcessed.Count is 0 ? new string[] { "Waiting for users..." } : CurrentlyProcessed.ToArray();
+                ActiveConnections.Report(msg);
             }
         }
 
@@ -313,6 +335,15 @@ namespace EtumrepMMO.Server
                 await Task.Delay(0_100, token).ConfigureAwait(false);
                 Labels.Report((Settings.ConnectionsAccepted, Settings.UsersAuthenticated, Settings.EtumrepsRun));
             }
+        }
+
+        private void ReportUserQueue(string name, bool insert)
+        {
+            if (!insert)
+                UsersInQueue.Remove(name);
+            else UsersInQueue.Add(name);
+
+            Queue.Report((name, insert));
         }
 
         private static void DisposeStream(RemoteUser? user)

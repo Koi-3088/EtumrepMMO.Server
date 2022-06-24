@@ -7,6 +7,8 @@ namespace EtumrepMMO.Server.WinForms
         private readonly ServerConnection Connection;
         private readonly string ConfigPath = GetConfigPath();
         private readonly object _logLock = new();
+        private readonly object _labelLock = new();
+        private readonly object _queueLock = new();
 
         private static CancellationTokenSource Source { get; set; } = new();
         private ServerSettings Settings { get; set; }
@@ -15,14 +17,6 @@ namespace EtumrepMMO.Server.WinForms
         public Main()
         {
             InitializeComponent();
-            var prg = new Progress<(string, int, bool)>(x =>
-            {
-                ActiveConnection.Text = x.Item1;
-                Bar_Load.Value = x.Item2;
-                ActiveConnection.Visible = x.Item3;
-                Bar_Load.Visible = x.Item3;
-            });
-
             if (File.Exists(ConfigPath))
             {
                 var text = File.ReadAllText(ConfigPath);
@@ -31,13 +25,28 @@ namespace EtumrepMMO.Server.WinForms
             }
             else Settings = new();
 
+            var status = new Progress<ConnectionStatus>(x =>
+            {
+                UpdateStatusLamp(x);
+            });
+
+            var conn = new Progress<string[]>(x =>
+            {
+                TB_ActiveConnections.Lines = x;
+            });
+
             var labels = new Progress<(int, int, int)>(x =>
             {
                 UpdateLabels(x.Item1, x.Item2, x.Item3);
             });
 
+            var queue = new Progress<(string, bool)>(x =>
+            {
+                UpdateQueueList(x.Item1, x.Item2);
+            });
+
             RTB_Logs.MaxLength = 32_767;
-            Connection = new(Settings, prg, labels);
+            Connection = new(Settings, status, conn, labels, queue);
             Grid_Settings.SelectedObject = Settings;
             LogUtil.Forwarders.Add(PostLog);
         }
@@ -74,6 +83,8 @@ namespace EtumrepMMO.Server.WinForms
                 await Connection.Stop().ConfigureAwait(false);
                 Source = new();
                 WasStarted = false;
+                TB_ActiveConnections.Text = "Waiting for users...";
+                LV_QueueList.Items.Clear();
             }
             Task.WhenAny(WaitUntilDone(), Task.Delay(1_000)).ConfigureAwait(true).GetAwaiter().GetResult();
             LogUtil.Log("Server has been shut down.", "[Stop Button Event]");
@@ -126,11 +137,35 @@ namespace EtumrepMMO.Server.WinForms
             File.WriteAllText(ConfigPath, lines);
         }
 
+        private void UpdateStatusLamp(ConnectionStatus status) => PB_Ready.BackColor = status switch
+        {
+            ConnectionStatus.Connecting => Color.Wheat,
+            ConnectionStatus.Connected => Color.LawnGreen,
+            _ => Color.WhiteSmoke
+        };
+
         private void UpdateLabels(int connections, int authentications, int etumreps)
         {
-            Connections.Text = connections > 0 ? $"Connections accepted: {connections}" : string.Empty;
-            Authenticated.Text = authentications > 0 ? $"Users authenticated: {authentications}" : string.Empty;
-            Etumreps.Text = etumreps > 0 ? $"EtumrepMMOs run: {etumreps}" : string.Empty;
+            lock (_labelLock)
+            {
+                Label_Connections.Text = connections > 0 ? $"Connections accepted: {connections}" : string.Empty;
+                Label_Authenticated.Text = authentications > 0 ? $"Users authenticated: {authentications}" : string.Empty;
+                Label_Etumreps.Text = etumreps > 0 ? $"EtumrepMMOs run: {etumreps}" : string.Empty;
+            }
+        }
+
+        private void UpdateQueueList(string text, bool insert)
+        {
+            lock (_queueLock)
+            {
+                if (insert)
+                    LV_QueueList.Items.Add(text);
+                else
+                {
+                    var item = LV_QueueList.FindItemWithText(text);
+                    LV_QueueList.Items.Remove(item);
+                }
+            }
         }
     }
 }

@@ -7,6 +7,7 @@ namespace EtumrepMMO.Server
         public override string ToString() => "Server Settings";
         private const string Startup = nameof(Startup);
         private const string User = nameof(User);
+        private const string Counts = nameof(Counts);
 
         [Category(Startup), Description("Port.")]
         public int Port { get; set; } = 80;
@@ -17,20 +18,14 @@ namespace EtumrepMMO.Server
         [Category(Startup), Description("Maximum EtumrepMMO queue size. Server will deny connections until the queue is below this value.")]
         public int MaxQueue { get; set; } = 10;
 
+        [Category(Startup), Description("Maximum concurrent EtumrepMMO instances to run.")]
+        public int MaxConcurrent { get; set; } = 2;
+
         [Category(Startup), Description("Whitelisted clients (bot hosts).")]
         public List<DiscordUser> HostWhitelist { get; set; } = new();
 
         [Category(Startup), Description("Blacklisted users.")]
         public List<DiscordUser> UserBlacklist { get; set; } = new();
-
-        [Category(Startup), Description("Connections accepted.")]
-        public int ConnectionsAccepted { get; set; }
-
-        [Category(Startup), Description("Users authenticated.")]
-        public int UsersAuthenticated { get; set; }
-
-        [Category(Startup), Description("EtumrepMMOs successfully run.")]
-        public int EtumrepsRun { get; set; }
 
         [Category(User), Description("Discord user object.")]
         public class DiscordUser
@@ -46,5 +41,34 @@ namespace EtumrepMMO.Server
             [Category(User), Description("Discord user's password.")]
             public string Password { get; set; } = string.Empty;
         }
+
+        private int _connectionsAccepted;
+        private int _usersAuthenticated;
+        private int _etumrepsRun;
+
+        [Category(Counts), Description("Connections accepted.")]
+        public int ConnectionsAccepted
+        {
+            get => _connectionsAccepted;
+            set => _connectionsAccepted = value;
+        }
+
+        [Category(Counts), Description("Users authenticated.")]
+        public int UsersAuthenticated
+        {
+            get => _usersAuthenticated;
+            set => _usersAuthenticated = value;
+        }
+
+        [Category(Counts), Description("EtumrepMMOs successfully run.")]
+        public int EtumrepsRun
+        {
+            get => _etumrepsRun;
+            set => _etumrepsRun = value;
+        }
+
+        public void AddConnectionsAccepted() => Interlocked.Increment(ref _connectionsAccepted);
+        public void AddUsersAuthenticated() => Interlocked.Increment(ref _usersAuthenticated);
+        public void AddEtumrepsRun() => Interlocked.Increment(ref _etumrepsRun);
     }
 }
