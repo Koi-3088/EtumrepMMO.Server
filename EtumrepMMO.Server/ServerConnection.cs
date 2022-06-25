@@ -14,22 +14,19 @@ namespace EtumrepMMO.Server
         private TcpListener Listener { get; set; }
         private BlockingCollection<RemoteUser> UserQueue { get; }
         private static IProgress<ConnectionStatus> Status { get; set; } = default!;
-        private static IProgress<string[]> ActiveConnections { get; set; } = default!;
+        private static IProgress<(string, bool)> ConcurrentQueue { get; set; } = default!;
         private static IProgress<(int, int, int)> Labels { get; set; } = default!;
         private static IProgress<(string, bool)> Queue { get; set; } = default!;
-
-        private List<string> UsersInQueue { get; set; } = new();
-        private List<string> CurrentlyProcessed { get; set; } = new();
         private bool IsStopped { get; set; }
 
         private readonly SemaphoreSlim _semaphore;
         private int _entryID;
 
-        public ServerConnection(ServerSettings settings, IProgress<ConnectionStatus> status, IProgress<string[]> connections, IProgress<(int, int, int)> labels, IProgress<(string, bool)> queue)
+        public ServerConnection(ServerSettings settings, IProgress<ConnectionStatus> status, IProgress<(string, bool)> concurrent, IProgress<(int, int, int)> labels, IProgress<(string, bool)> queue)
         {
             Settings = settings;
             Status = status;
-            ActiveConnections = connections;
+            ConcurrentQueue = concurrent;
             Labels = labels;
             Queue = queue;
             UserQueue = new(settings.MaxQueue);
@@ -89,7 +86,6 @@ namespace EtumrepMMO.Server
             IsStopped = false;
 
             _ = Task.Run(async () => await RemoteUserQueue(token).ConfigureAwait(false), token);
-            _ = Task.Run(async () => await ReportCurrentlyProcessed(token).ConfigureAwait(false), token);
             _ = Task.Run(async () => await UpdateLabels(token).ConfigureAwait(false), token);
 
             Status.Report(ConnectionStatus.Connected);
@@ -113,16 +109,14 @@ namespace EtumrepMMO.Server
                 }
 
                 if (pending)
-                {
-                    LogUtil.Log("A user is attempting to connect...", "[TCP Listener]");
                     _ = Task.Run(async () => await AcceptPendingConnection(token).ConfigureAwait(false), token);
-                }
                 await Task.Delay(0_200, token).ConfigureAwait(false);
             }
         }
 
         private async Task AcceptPendingConnection(CancellationToken token)
         {
+            LogUtil.Log("A user is attempting to connect...", "[TCP Listener]");
             var remoteClient = await Listener.AcceptTcpClientAsync(token).ConfigureAwait(false);
             Settings.AddConnectionsAccepted();
 
@@ -185,59 +179,70 @@ namespace EtumrepMMO.Server
             if (user.UserAuth is null)
             {
                 LogUtil.Log("UserAuth is null: Something went very, very wrong.", "[User Queue]");
+                _semaphore.Release();
                 DisposeStream(user);
                 return;
             }
 
-            var checker = $"{user.UserAuth.SeedCheckerName} ({user.UserAuth.SeedCheckerID})";
-            CurrentlyProcessed.Add(checker);
+            var checker = $"{user.EntryID}. {user.UserAuth.SeedCheckerName} ({user.UserAuth.SeedCheckerID})";
+            ReportCurrentlyProcessed(checker, true);
             LogUtil.Log($"{user.UserAuth.HostName}: Attempting to read PKM data from {user.UserAuth.SeedCheckerName}.", "[User Queue]");
-            int read, count;
 
-            try
+            async Task EtumrepFunc()
             {
-                read = await user.Stream.ReadAsync(user.Buffer, token).ConfigureAwait(false);
-                count = read / 376;
-
-                if (read is 0 || count is < 2 || count is > 4)
+                int read, count;
+                try
                 {
-                    LogUtil.Log($"{user.UserAuth.HostName}: Received an incorrect amount of data from {user.UserAuth.SeedCheckerName}.", "[User Queue]");
-                    DisposeStream(user);
+                    read = await user.Stream.ReadAsync(user.Buffer, token).ConfigureAwait(false);
+                    count = read / 376;
+
+                    if (read is 0 || count is < 2 || count is > 4)
+                    {
+                        LogUtil.Log($"{user.UserAuth.HostName}: Received an incorrect amount of data from {user.UserAuth.SeedCheckerName}.", "[User Queue]");
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while reading data from {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[User Queue]");
                     return;
                 }
+                LogUtil.Log($"{user.UserAuth.HostName}: Beginning seed calculation for {user.UserAuth.SeedCheckerName}...", "[User Queue]");
+
+                var list = EtumrepUtil.GetPokeList(user.Buffer, count);
+                var sw = new Stopwatch();
+
+                sw.Start();
+                var seed = EtumrepUtil.CalculateSeed(list);
+                sw.Stop();
+
+                Settings.AddEtumrepsRun();
+                LogUtil.Log($"{user.UserAuth.HostName}: Seed ({seed}) calculation for {user.UserAuth.SeedCheckerName} complete ({sw.Elapsed}). Attempting to send the result...", "[User Queue]");
+
+                var bytes = BitConverter.GetBytes(seed);
+                try
+                {
+                    ReportUserQueue(user.ToString(), false);
+                    await user.Stream.WriteAsync(bytes, token).ConfigureAwait(false);
+                    LogUtil.Log($"{user.UserAuth.HostName}: Results were sent, removing from queue.", "[User Queue]");
+                }
+                catch (Exception ex)
+                {
+                    LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while sending results to {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[User Queue]");
+                }
             }
-            catch (Exception ex)
-            {
-                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while reading data from {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[User Queue]");
-                DisposeStream(user);
-                return;
-            }
-            LogUtil.Log($"{user.UserAuth.HostName}: Beginning seed calculation for {user.UserAuth.SeedCheckerName}...", "[User Queue]");
 
-            var list = EtumrepUtil.GetPokeList(user.Buffer, count);
-            var sw = new Stopwatch();
-
-            sw.Start();
-            var seed = EtumrepUtil.CalculateSeed(list);
-            sw.Stop();
-
-            Settings.AddEtumrepsRun();
-            LogUtil.Log($"{user.UserAuth.HostName}: Seed ({seed}) calculation for {user.UserAuth.SeedCheckerName} complete ({sw.Elapsed}). Attempting to send the result...", "[User Queue]");
-
-            var bytes = BitConverter.GetBytes(seed);
             try
             {
-                ReportUserQueue(user.ToString(), false);
-                _semaphore.Release();
-                await user.Stream.WriteAsync(bytes, token).ConfigureAwait(false);
-                LogUtil.Log($"{user.UserAuth.HostName}: Results were sent, removing from queue.", "[User Queue]");
+                await EtumrepFunc().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while sending results to {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[User Queue]");
+                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while processing {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[EtumrepFunc]");
             }
 
-            CurrentlyProcessed.Remove(checker);
+            ReportCurrentlyProcessed(checker, false);
+            _semaphore.Release();
             DisposeStream(user);
         }
 
@@ -318,16 +323,6 @@ namespace EtumrepMMO.Server
             }
         }
 
-        private async Task ReportCurrentlyProcessed(CancellationToken token)
-        {
-            while (!token.IsCancellationRequested)
-            {
-                await Task.Delay(0_100, token).ConfigureAwait(false);
-                var msg = CurrentlyProcessed.Count is 0 ? new string[] { "Waiting for users..." } : CurrentlyProcessed.ToArray();
-                ActiveConnections.Report(msg);
-            }
-        }
-
         private async Task UpdateLabels(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
@@ -337,14 +332,8 @@ namespace EtumrepMMO.Server
             }
         }
 
-        private void ReportUserQueue(string name, bool insert)
-        {
-            if (!insert)
-                UsersInQueue.Remove(name);
-            else UsersInQueue.Add(name);
-
-            Queue.Report((name, insert));
-        }
+        private static void ReportUserQueue(string name, bool insert) => Queue.Report((name, insert));
+        private static void ReportCurrentlyProcessed(string name, bool insert) => ConcurrentQueue.Report((name, insert));
 
         private static void DisposeStream(RemoteUser? user)
         {
