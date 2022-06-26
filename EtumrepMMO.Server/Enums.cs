@@ -1,9 +1,8 @@
-﻿namespace EtumrepMMO.Server
+﻿namespace EtumrepMMO.Server;
+
+public enum ConnectionStatus
 {
-    public enum ConnectionStatus
-    {
-        NotConnected,
-        Connecting,
-        Connected,
-    }
+    NotConnected,
+    Connecting,
+    Connected,
 }
