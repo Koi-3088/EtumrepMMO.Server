@@ -30,6 +30,7 @@
         {
             this.Tab_Main = new System.Windows.Forms.TabControl();
             this.Tab_QueueDisplay = new System.Windows.Forms.TabPage();
+            this.LV_Concurrent = new System.Windows.Forms.ListView();
             this.TB_QueueList = new System.Windows.Forms.TextBox();
             this.LV_QueueList = new System.Windows.Forms.ListView();
             this.TB_CurrentlyServing = new System.Windows.Forms.TextBox();
@@ -43,7 +44,6 @@
             this.Label_Etumreps = new System.Windows.Forms.Label();
             this.Label_Authenticated = new System.Windows.Forms.Label();
             this.PB_Ready = new System.Windows.Forms.PictureBox();
-            this.LV_Concurrent = new System.Windows.Forms.ListView();
             this.Tab_Main.SuspendLayout();
             this.Tab_QueueDisplay.SuspendLayout();
             this.Tab_Settings.SuspendLayout();
@@ -56,11 +56,12 @@
             this.Tab_Main.Controls.Add(this.Tab_QueueDisplay);
             this.Tab_Main.Controls.Add(this.Tab_Settings);
             this.Tab_Main.Controls.Add(this.Tab_Logs);
-            this.Tab_Main.Location = new System.Drawing.Point(14, 87);
+            this.Tab_Main.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.Tab_Main.Location = new System.Drawing.Point(0, 0);
             this.Tab_Main.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.Tab_Main.Name = "Tab_Main";
             this.Tab_Main.SelectedIndex = 0;
-            this.Tab_Main.Size = new System.Drawing.Size(907, 419);
+            this.Tab_Main.Size = new System.Drawing.Size(680, 357);
             this.Tab_Main.TabIndex = 0;
             // 
             // Tab_QueueDisplay
@@ -74,9 +75,25 @@
             this.Tab_QueueDisplay.Location = new System.Drawing.Point(4, 24);
             this.Tab_QueueDisplay.Name = "Tab_QueueDisplay";
             this.Tab_QueueDisplay.Padding = new System.Windows.Forms.Padding(3);
-            this.Tab_QueueDisplay.Size = new System.Drawing.Size(899, 391);
+            this.Tab_QueueDisplay.Size = new System.Drawing.Size(672, 329);
             this.Tab_QueueDisplay.TabIndex = 0;
             this.Tab_QueueDisplay.Text = "Queue Display";
+            // 
+            // LV_Concurrent
+            // 
+            this.LV_Concurrent.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.LV_Concurrent.AutoArrange = false;
+            this.LV_Concurrent.BackColor = System.Drawing.SystemColors.ControlDark;
+            this.LV_Concurrent.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.LV_Concurrent.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.None;
+            this.LV_Concurrent.Location = new System.Drawing.Point(157, 6);
+            this.LV_Concurrent.MultiSelect = false;
+            this.LV_Concurrent.Name = "LV_Concurrent";
+            this.LV_Concurrent.Size = new System.Drawing.Size(507, 76);
+            this.LV_Concurrent.TabIndex = 11;
+            this.LV_Concurrent.UseCompatibleStateImageBehavior = false;
+            this.LV_Concurrent.View = System.Windows.Forms.View.List;
             // 
             // TB_QueueList
             // 
@@ -91,11 +108,14 @@
             // 
             // LV_QueueList
             // 
+            this.LV_QueueList.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.LV_QueueList.AutoArrange = false;
             this.LV_QueueList.BackColor = System.Drawing.SystemColors.ControlDark;
             this.LV_QueueList.Location = new System.Drawing.Point(157, 88);
             this.LV_QueueList.Name = "LV_QueueList";
-            this.LV_QueueList.Size = new System.Drawing.Size(716, 297);
+            this.LV_QueueList.Size = new System.Drawing.Size(507, 233);
             this.LV_QueueList.TabIndex = 9;
             this.LV_QueueList.UseCompatibleStateImageBehavior = false;
             this.LV_QueueList.View = System.Windows.Forms.View.List;
@@ -118,7 +138,7 @@
             this.Tab_Settings.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.Tab_Settings.Name = "Tab_Settings";
             this.Tab_Settings.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            this.Tab_Settings.Size = new System.Drawing.Size(899, 391);
+            this.Tab_Settings.Size = new System.Drawing.Size(672, 329);
             this.Tab_Settings.TabIndex = 1;
             this.Tab_Settings.Text = "Settings";
             this.Tab_Settings.UseVisualStyleBackColor = true;
@@ -129,16 +149,17 @@
             this.Grid_Settings.CategorySplitterColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.Grid_Settings.CommandsBorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.Grid_Settings.DisabledItemForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(127)))), ((int)(((byte)(0)))), ((int)(((byte)(120)))), ((int)(((byte)(215)))));
+            this.Grid_Settings.Dock = System.Windows.Forms.DockStyle.Fill;
             this.Grid_Settings.HelpBackColor = System.Drawing.SystemColors.ControlLight;
             this.Grid_Settings.HelpBorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.Grid_Settings.LineColor = System.Drawing.SystemColors.ControlDark;
-            this.Grid_Settings.Location = new System.Drawing.Point(7, 7);
+            this.Grid_Settings.Location = new System.Drawing.Point(4, 3);
             this.Grid_Settings.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.Grid_Settings.Name = "Grid_Settings";
             this.Grid_Settings.PropertySort = System.Windows.Forms.PropertySort.Categorized;
             this.Grid_Settings.SelectedItemWithFocusBackColor = System.Drawing.SystemColors.ButtonFace;
             this.Grid_Settings.SelectedItemWithFocusForeColor = System.Drawing.SystemColors.Highlight;
-            this.Grid_Settings.Size = new System.Drawing.Size(877, 378);
+            this.Grid_Settings.Size = new System.Drawing.Size(664, 323);
             this.Grid_Settings.TabIndex = 0;
             this.Grid_Settings.ViewBackColor = System.Drawing.SystemColors.ControlDark;
             this.Grid_Settings.ViewBorderColor = System.Drawing.SystemColors.ActiveCaptionText;
@@ -152,7 +173,7 @@
             this.Tab_Logs.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.Tab_Logs.Name = "Tab_Logs";
             this.Tab_Logs.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            this.Tab_Logs.Size = new System.Drawing.Size(899, 391);
+            this.Tab_Logs.Size = new System.Drawing.Size(672, 329);
             this.Tab_Logs.TabIndex = 2;
             this.Tab_Logs.Text = "Logs";
             this.Tab_Logs.UseVisualStyleBackColor = true;
@@ -166,16 +187,17 @@
             this.RTB_Logs.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.RTB_Logs.Name = "RTB_Logs";
             this.RTB_Logs.ReadOnly = true;
-            this.RTB_Logs.Size = new System.Drawing.Size(891, 385);
+            this.RTB_Logs.Size = new System.Drawing.Size(664, 323);
             this.RTB_Logs.TabIndex = 0;
             this.RTB_Logs.Text = "";
             // 
             // Button_Start
             // 
-            this.Button_Start.Location = new System.Drawing.Point(94, 12);
+            this.Button_Start.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.Button_Start.Location = new System.Drawing.Point(563, 3);
             this.Button_Start.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.Button_Start.Name = "Button_Start";
-            this.Button_Start.Size = new System.Drawing.Size(88, 27);
+            this.Button_Start.Size = new System.Drawing.Size(56, 22);
             this.Button_Start.TabIndex = 1;
             this.Button_Start.Text = "Start";
             this.Button_Start.UseVisualStyleBackColor = true;
@@ -183,10 +205,11 @@
             // 
             // Button_Stop
             // 
-            this.Button_Stop.Location = new System.Drawing.Point(94, 43);
+            this.Button_Stop.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.Button_Stop.Location = new System.Drawing.Point(620, 3);
             this.Button_Stop.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.Button_Stop.Name = "Button_Stop";
-            this.Button_Stop.Size = new System.Drawing.Size(88, 27);
+            this.Button_Stop.Size = new System.Drawing.Size(56, 22);
             this.Button_Stop.TabIndex = 2;
             this.Button_Stop.Text = "Stop";
             this.Button_Stop.UseVisualStyleBackColor = true;
@@ -195,7 +218,7 @@
             // Label_Connections
             // 
             this.Label_Connections.AutoSize = true;
-            this.Label_Connections.Location = new System.Drawing.Point(214, 18);
+            this.Label_Connections.Location = new System.Drawing.Point(959, 21);
             this.Label_Connections.Name = "Label_Connections";
             this.Label_Connections.Size = new System.Drawing.Size(0, 15);
             this.Label_Connections.TabIndex = 5;
@@ -203,7 +226,7 @@
             // Label_Etumreps
             // 
             this.Label_Etumreps.AutoSize = true;
-            this.Label_Etumreps.Location = new System.Drawing.Point(214, 47);
+            this.Label_Etumreps.Location = new System.Drawing.Point(954, 51);
             this.Label_Etumreps.Name = "Label_Etumreps";
             this.Label_Etumreps.Size = new System.Drawing.Size(0, 15);
             this.Label_Etumreps.TabIndex = 6;
@@ -211,54 +234,40 @@
             // Label_Authenticated
             // 
             this.Label_Authenticated.AutoSize = true;
-            this.Label_Authenticated.Location = new System.Drawing.Point(214, 32);
+            this.Label_Authenticated.Location = new System.Drawing.Point(959, 35);
             this.Label_Authenticated.Name = "Label_Authenticated";
             this.Label_Authenticated.Size = new System.Drawing.Size(0, 15);
             this.Label_Authenticated.TabIndex = 7;
             // 
             // PB_Ready
             // 
+            this.PB_Ready.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.PB_Ready.BackColor = System.Drawing.SystemColors.ControlLight;
             this.PB_Ready.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.PB_Ready.Location = new System.Drawing.Point(14, 12);
+            this.PB_Ready.Location = new System.Drawing.Point(559, -1);
             this.PB_Ready.Name = "PB_Ready";
-            this.PB_Ready.Size = new System.Drawing.Size(61, 58);
+            this.PB_Ready.Size = new System.Drawing.Size(120, 29);
             this.PB_Ready.TabIndex = 8;
             this.PB_Ready.TabStop = false;
-            // 
-            // LV_Concurrent
-            // 
-            this.LV_Concurrent.AutoArrange = false;
-            this.LV_Concurrent.BackColor = System.Drawing.SystemColors.ControlDark;
-            this.LV_Concurrent.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.LV_Concurrent.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.None;
-            this.LV_Concurrent.Location = new System.Drawing.Point(157, 6);
-            this.LV_Concurrent.MultiSelect = false;
-            this.LV_Concurrent.Name = "LV_Concurrent";
-            this.LV_Concurrent.Size = new System.Drawing.Size(716, 76);
-            this.LV_Concurrent.TabIndex = 11;
-            this.LV_Concurrent.UseCompatibleStateImageBehavior = false;
-            this.LV_Concurrent.View = System.Windows.Forms.View.List;
             // 
             // Main
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.SystemColors.ControlDark;
-            this.ClientSize = new System.Drawing.Size(933, 519);
+            this.ClientSize = new System.Drawing.Size(680, 357);
+            this.Controls.Add(this.Button_Stop);
+            this.Controls.Add(this.Button_Start);
             this.Controls.Add(this.PB_Ready);
             this.Controls.Add(this.Label_Authenticated);
             this.Controls.Add(this.Label_Etumreps);
             this.Controls.Add(this.Label_Connections);
-            this.Controls.Add(this.Button_Stop);
-            this.Controls.Add(this.Button_Start);
             this.Controls.Add(this.Tab_Main);
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.Fixed3D;
             this.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.MaximizeBox = false;
             this.Name = "Main";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "EtumrepMMO.Server";
-            this.FormClosing += Main_FormClosing;
             this.Tab_Main.ResumeLayout(false);
             this.Tab_QueueDisplay.ResumeLayout(false);
             this.Tab_QueueDisplay.PerformLayout();
