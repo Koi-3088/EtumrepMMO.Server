@@ -13,14 +13,16 @@ public class ServerConnection
     private ServerSettings Settings { get; }
     private TcpListener Listener { get; set; }
     private BlockingCollection<RemoteUser> UserQueue { get; }
-    private static IProgress<ConnectionStatus> Status { get; set; } = default!;
-    private static IProgress<(string, bool)> ConcurrentQueue { get; set; } = default!;
-    private static IProgress<(int, int, int)> Labels { get; set; } = default!;
-    private static IProgress<(string, bool)> Queue { get; set; } = default!;
+    private IProgress<ConnectionStatus> Status { get; }
+    private IProgress<(string, bool)> ConcurrentQueue { get; }
+    private IProgress<(int, int, int)> Labels { get; }
+    private IProgress<(string, bool)> Queue { get; }
     private bool IsStopped { get; set; }
 
     private readonly SemaphoreSlim _semaphore;
     private int _entryID;
+
+    private const int DefaultTimeout = 60_000; // 60 seconds
 
     public ServerConnection(ServerSettings settings, IProgress<ConnectionStatus> status, IProgress<(string, bool)> concurrent, IProgress<(int, int, int)> labels, IProgress<(string, bool)> queue)
     {
@@ -32,39 +34,15 @@ public class ServerConnection
         UserQueue = new(settings.MaxQueue);
         _semaphore = new(settings.MaxConcurrent, settings.MaxConcurrent);
 
-        Listener = new(IPAddress.Any, settings.Port);
-        Listener.Server.ReceiveTimeout = 60_000;
-        Listener.Server.SendTimeout = 60_000;
-        Listener.Server.LingerState = new(true, 20);
-    }
-
-    internal class RemoteUser
-    {
-        public override string ToString() => $"{EntryID}. {(UserAuth is not null ? UserAuth.ToString() : "Unknown user")}";
-
-        internal RemoteUser(TcpClient client, AuthenticatedStream stream)
+        Listener = new(IPAddress.Any, settings.Port)
         {
-            Client = client;
-            Stream = stream;
-        }
-
-        public TcpClient Client { get; }
-        public AuthenticatedStream Stream { get; }
-        public UserAuth? UserAuth { get; set; } = new();
-        public bool IsAuthenticated { get; set; }
-        public byte[] Buffer { get; } = new byte[1504];
-        public int EntryID { get; set; }
-    }
-
-    internal class UserAuth
-    {
-        public override string ToString() => $"Host: {HostName} ({HostID}) | User: {SeedCheckerName} ({SeedCheckerID})";
-        public string HostName { get; set; } = string.Empty;
-        public ulong HostID { get; set; }
-        public string HostPassword { get; set; } = string.Empty;
-        public string Token { get; set; } = string.Empty;
-        public string SeedCheckerName { get; set; } = string.Empty;
-        public ulong SeedCheckerID { get; set; }
+            Server =
+            {
+                ReceiveTimeout = DefaultTimeout,
+                SendTimeout = DefaultTimeout,
+                LingerState = new(true, 20),
+            },
+        };
     }
 
     public async Task Stop()
@@ -101,8 +79,13 @@ public class ServerConnection
             catch (Exception ex)
             {
                 LogUtil.Log($"TCP Listener has crashed, trying to restart the connection.\n{ex.Message}", "[TCP Listener]");
-                Listener = new(IPAddress.Any, Settings.Port);
-                Listener.Server.LingerState = new(true, 20);
+                Listener = new(IPAddress.Any, Settings.Port)
+                {
+                    Server =
+                    {
+                        LingerState = new(true, 20),
+                    },
+                };
 
                 pending = false;
                 LogUtil.Log("TCP Listener was restarted, waiting for connections...", "[TCP Listener]");
@@ -122,18 +105,23 @@ public class ServerConnection
 
         LogUtil.Log("A user has connected, authenticating the connection...", "[TCP Listener]");
         RemoteUser? user = await AuthenticateConnection(remoteClient).ConfigureAwait(false);
-        if (user is null || !user.IsAuthenticated)
+        if (user is null)
+        {
+            remoteClient.Dispose();
+            return;
+        }
+        if (!user.IsAuthenticated)
         {
             DisposeStream(user);
             return;
         }
 
         LogUtil.Log("Connection authenticated, attempting to authenticate the user...", "[TCP Listener]");
-        user.UserAuth = await AuthenticateUser(user, token).ConfigureAwait(false);
-        if (user.UserAuth is null)
+        var auth = await AuthenticateUser(user, token).ConfigureAwait(false);
+        if (auth is null)
         {
             await SendServerConfirmation(user, false, token).ConfigureAwait(false);
-            DisposeStream(user);
+            DisposeStream(user, auth);
             return;
         }
         Settings.AddUsersAuthenticated();
@@ -143,7 +131,7 @@ public class ServerConnection
 
         if (enqueue)
         {
-            LogUtil.Log($"{user.UserAuth.HostName} ({user.UserAuth.HostID}) was successfully authenticated, enqueueing...", "[TCP Listener]");
+            LogUtil.Log($"{user.UserAuth.HostName} ({user.UserAuth.HostID}) was successfully authenticated, queueing...", "[TCP Listener]");
 
             // Increment queue entry ID.
             user.EntryID = Interlocked.Increment(ref _entryID);
@@ -176,27 +164,19 @@ public class ServerConnection
 
     private async Task RunEtumrepAsync(RemoteUser user, CancellationToken token)
     {
-        if (user.UserAuth is null)
-        {
-            LogUtil.Log("UserAuth is null: Something went very, very wrong.", "[User Queue]");
-            _semaphore.Release();
-            DisposeStream(user);
-            return;
-        }
-
         var checker = $"{user.EntryID}. {user.UserAuth.SeedCheckerName} ({user.UserAuth.SeedCheckerID})";
         ReportCurrentlyProcessed(checker, true);
         LogUtil.Log($"{user.UserAuth.HostName}: Attempting to read PKM data from {user.UserAuth.SeedCheckerName}.", "[User Queue]");
 
         async Task EtumrepFunc()
         {
-            int read, count;
+            int count;
             try
             {
-                read = await user.Stream.ReadAsync(user.Buffer, token).ConfigureAwait(false);
-                count = read / 376;
+                int read = await user.Stream.ReadAsync(user.Buffer, token).ConfigureAwait(false);
+                count = read / EtumrepUtil.SIZE;
 
-                if (read is 0 || count is < 2 || count is > 4)
+                if (count is not (2 or 3 or 4))
                 {
                     LogUtil.Log($"{user.UserAuth.HostName}: Received an incorrect amount of data from {user.UserAuth.SeedCheckerName}.", "[User Queue]");
                     return;
@@ -251,8 +231,8 @@ public class ServerConnection
         try
         {
             var stream = client.GetStream();
-            stream.Socket.ReceiveTimeout = 60_000;
-            stream.Socket.SendTimeout = 60_000;
+            stream.Socket.ReceiveTimeout = DefaultTimeout;
+            stream.Socket.SendTimeout = DefaultTimeout;
 
             var authStream = new NegotiateStream(stream, false);
             var user = new RemoteUser(client, authStream);
@@ -271,11 +251,11 @@ public class ServerConnection
 
     private async Task<UserAuth?> AuthenticateUser(RemoteUser user, CancellationToken token)
     {
-        UserAuth? authObj = null;
+        UserAuth? authObj;
         try
         {
             byte[] authBytes = new byte[688];
-            await user.Stream.ReadAsync(authBytes, token).ConfigureAwait(false);
+            _ = await user.Stream.ReadAsync(authBytes, token).ConfigureAwait(false);
             var text = Encoding.Unicode.GetString(authBytes);
             authObj = JsonConvert.DeserializeObject<UserAuth>(text);
         }
@@ -290,17 +270,17 @@ public class ServerConnection
             LogUtil.Log("User did not send an authentication packet.", "[User Authentication]");
             return null;
         }
-        else if (!Settings.HostWhitelist.Exists(x => x.ID == authObj.HostID && x.Password == authObj.HostPassword))
+        if (!Settings.HostWhitelist.Exists(x => x.ID == authObj.HostID && x.Password == authObj.HostPassword))
         {
             LogUtil.Log($"{authObj.HostName} ({authObj.HostID}) is not a whitelisted bot host.", "[User Authentication]");
             return null;
         }
-        else if (Settings.UserBlacklist.Exists(x => x.ID == authObj.SeedCheckerID))
+        if (Settings.UserBlacklist.Exists(x => x.ID == authObj.SeedCheckerID))
         {
             LogUtil.Log($"{authObj.SeedCheckerName} ({authObj.SeedCheckerID}) is a blacklisted user.", "[User Authentication]");
             return null;
         }
-        else if (Settings.Token != authObj.Token)
+        if (Settings.Token != authObj.Token)
         {
             LogUtil.Log($"The provided token ({authObj.Token}) does not match the token defined by us.", "[User Authentication]");
             return null;
@@ -332,27 +312,24 @@ public class ServerConnection
         }
     }
 
-    private static void ReportUserQueue(string name, bool insert) => Queue.Report((name, insert));
-    private static void ReportCurrentlyProcessed(string name, bool insert) => ConcurrentQueue.Report((name, insert));
+    private void ReportUserQueue(string name, bool insert) => Queue.Report((name, insert));
+    private void ReportCurrentlyProcessed(string name, bool insert) => ConcurrentQueue.Report((name, insert));
 
-    private static void DisposeStream(RemoteUser? user)
+    private static void DisposeStream(RemoteUser user, UserAuth? auth = null)
     {
-        if (user is not null)
+        try
         {
-            try
-            {
-                user.Client.Close();
-                user.Stream.Dispose();
-            }
-            catch (Exception ex)
-            {
-                string msg = string.Empty;
-                if (user.UserAuth is not null)
-                    msg = $"{user.UserAuth.HostName}: ";
+            user.Client.Close();
+            user.Stream.Dispose();
+        }
+        catch (Exception ex)
+        {
+            string msg = string.Empty;
+            if ((auth ?? user.UserAuth) is { } x)
+                msg = $"{x.HostName}: ";
 
-                msg += $"Error occurred while disposing the connection stream.\n{ex.Message}";
-                LogUtil.Log(msg, "[DisposeStream]");
-            }
+            msg += $"Error occurred while disposing the connection stream.\n{ex.Message}";
+            LogUtil.Log(msg, "[DisposeStream]");
         }
     }
 }
