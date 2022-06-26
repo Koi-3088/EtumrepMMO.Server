@@ -6,7 +6,8 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Platforms>AnyCPU;x64</Platforms>
+    <LangVersion>10</LangVersion>
+    <Platforms>x64;x86</Platforms>
     <StartupObject>EtumrepMMO.Server.WinForms.Program</StartupObject>
   </PropertyGroup>
 
