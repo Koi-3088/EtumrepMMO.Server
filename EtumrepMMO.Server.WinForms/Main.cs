@@ -5,20 +5,20 @@ namespace EtumrepMMO.Server.WinForms;
 public sealed partial class Main : Form
 {
     private readonly ServerConnection Connection;
-    private readonly string ConfigPath = GetConfigPath();
+    private readonly ServerSettings Settings;
+    private const string ConfigPath = "config.json";
     private readonly object _logLock = new();
     private readonly object _queueLock = new();
     private readonly object _concurrentLock = new();
 
-    private static CancellationTokenSource Source { get; set; } = new();
-    private ServerSettings Settings { get; set; }
+    private CancellationTokenSource Source { get; set; } = new();
     private static bool WasStarted { get; set; }
 
     private const string _waiting = "Waiting for users...";
     private const string _noQueue = "No users in queue...";
-    private const string _connectionsText = "Connections accepted: ";
-    private const string _authText = "Users authenticated: ";
-    private const string _etumrepText = "EtumrepMMOs run: ";
+    private const string _connectionsText = "Connections accepted: {0}";
+    private const string _authText = "Users authenticated: {0}";
+    private const string _etumrepText = "EtumrepMMOs run: {0}";
 
     public Main()
     {
@@ -29,27 +29,15 @@ public sealed partial class Main : Form
             Settings = JsonConvert.DeserializeObject<ServerSettings>(text, GetSettings()) ?? new ServerSettings();
             UpdateLabels(Settings.ConnectionsAccepted, Settings.UsersAuthenticated, Settings.EtumrepsRun);
         }
-        else Settings = new();
-
-        var status = new Progress<ConnectionStatus>(x =>
+        else
         {
-            UpdateStatusLamp(x);
-        });
+            Settings = new();
+        }
 
-        var concurrent = new Progress<(string, bool)>(x =>
-        {
-            UpdateCurrentlyProcessed(x.Item1, x.Item2);
-        });
-
-        var labels = new Progress<(int, int, int)>(x =>
-        {
-            UpdateLabels(x.Item1, x.Item2, x.Item3);
-        });
-
-        var queue = new Progress<(string, bool)>(x =>
-        {
-            UpdateQueue(x.Item1, x.Item2);
-        });
+        var status = new Progress<ConnectionStatus>(UpdateStatusLamp);
+        var concurrent = new Progress<(string, bool)>(x => UpdateCurrentlyProcessed(x.Item1, x.Item2));
+        var labels = new Progress<(int, int, int)>(x => UpdateLabels(x.Item1, x.Item2, x.Item3));
+        var queue = new Progress<(string, bool)>(x => UpdateQueue(x.Item1, x.Item2));
 
         UpdateCurrentlyProcessed(_waiting, false);
         UpdateQueue(_noQueue, false);
@@ -92,9 +80,12 @@ public sealed partial class Main : Form
             await Connection.Stop().ConfigureAwait(false);
             Source = new();
             WasStarted = false;
-            LV_Concurrent.Items.Clear();
-            LV_Concurrent.Items.Add("Waiting for users...");
-            LV_QueueList.Items.Clear();
+            lock (_concurrentLock)
+            {
+                LV_Concurrent.Items.Clear();
+                LV_Concurrent.Items.Add("Waiting for users...");
+                LV_QueueList.Items.Clear();
+            }
         }
         Task.WhenAny(WaitUntilDone(), Task.Delay(1_000)).ConfigureAwait(true).GetAwaiter().GetResult();
         LogUtil.Log("Server has been shut down.", "[Stop Button Event]");
@@ -132,8 +123,6 @@ public sealed partial class Main : Form
         _ = Task.Run(async () => await Connection.MainAsync(token), token);
     }
 
-    private static string GetConfigPath() => "config.json";
-
     private static JsonSerializerSettings GetSettings() => new()
     {
         Formatting = Formatting.Indented,
@@ -151,14 +140,17 @@ public sealed partial class Main : Form
     {
         ConnectionStatus.Connecting => Color.Wheat,
         ConnectionStatus.Connected => Color.LawnGreen,
-        _ => Color.WhiteSmoke
+        _ => Color.WhiteSmoke,
     };
 
     private void UpdateLabels(int connections, int authentications, int etumreps)
     {
-        Label_Connections.Text = _connectionsText + connections;
-        Label_Authenticated.Text = _authText + authentications;
-        Label_Etumreps.Text = _etumrepText + etumreps;
+        lock (_concurrentLock)
+        {
+            Label_Connections.Text = string.Format(_connectionsText, connections);
+            Label_Authenticated.Text = string.Format(_authText, authentications);
+            Label_Etumreps.Text = string.Format(_etumrepText, etumreps);
+        }
     }
 
     private void UpdateQueue(string text, bool insert)
@@ -169,7 +161,9 @@ public sealed partial class Main : Form
             LV_QueueList.Items.Remove(item);
 
             if (insert)
+            {
                 LV_QueueList.Items.Add(text);
+            }
             else
             {
                 item = LV_QueueList.FindItemWithText(text);
@@ -189,7 +183,9 @@ public sealed partial class Main : Form
             LV_Concurrent.Items.Remove(item);
 
             if (insert)
+            {
                 LV_Concurrent.Items.Add(text);
+            }
             else
             {
                 item = LV_Concurrent.FindItemWithText(text);

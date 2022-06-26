@@ -2,6 +2,7 @@
 
 namespace EtumrepMMO.Server;
 
+[Serializable]
 public class ServerSettings
 {
     public override string ToString() => "Server Settings";

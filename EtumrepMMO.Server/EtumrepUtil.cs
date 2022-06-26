@@ -3,24 +3,21 @@ using EtumrepMMO.Lib;
 
 namespace EtumrepMMO.Server;
 
-public class EtumrepUtil
+public static class EtumrepUtil
 {
-    public static ulong CalculateSeed(List<PKM> pkms)
-    {
-        var seed = GroupSeedFinder.FindSeed(pkms).Seed;
-        return seed;
-    }
+    public const int MAXCOUNT = 4;
+    public const int SIZE = 376;
+    public static ulong CalculateSeed(IEnumerable<PKM> pkms) => GroupSeedFinder.FindSeed(pkms).Seed;
 
-    public static List<PKM> GetPokeList(byte[] data, int count)
+    public static IEnumerable<PKM> GetPokeList(ReadOnlySpan<byte> data, int count)
     {
-        List<PKM> pks = new();
-        for (int i = 0; i < count; i++)
+        System.Diagnostics.Debug.Assert(data.Length % SIZE == 0 && data.Length / SIZE == count);
+        var result = new PA8[count];
+        for (int i = 0; i < result.Length; i++)
         {
-            int ofs = 376 * i;
-            byte[] buf = data.Slice(ofs, 376);
-            var pk = EntityFormat.GetFromBytes(buf)!;
-            pks.Add(pk);
+            byte[] buf = data.Slice(i * SIZE, SIZE).ToArray();
+            result[i] = new PA8(buf);
         }
-        return pks;
+        return result;
     }
 }
