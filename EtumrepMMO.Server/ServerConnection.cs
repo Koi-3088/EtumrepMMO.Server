@@ -15,7 +15,6 @@ public class ServerConnection
     private BlockingCollection<RemoteUser> UserQueue { get; }
     private IProgress<ConnectionStatus> Status { get; }
     private IProgress<(string, bool)> ConcurrentQueue { get; }
-    private IProgress<(int, int, int)> Labels { get; }
     private IProgress<(string, bool)> Queue { get; }
     private bool IsStopped { get; set; }
 
@@ -24,12 +23,11 @@ public class ServerConnection
 
     private const int DefaultTimeout = 60_000; // 60 seconds
 
-    public ServerConnection(ServerSettings settings, IProgress<ConnectionStatus> status, IProgress<(string, bool)> concurrent, IProgress<(int, int, int)> labels, IProgress<(string, bool)> queue)
+    public ServerConnection(ServerSettings settings, IProgress<ConnectionStatus> status, IProgress<(string, bool)> concurrent, IProgress<(string, bool)> queue)
     {
         Settings = settings;
         Status = status;
         ConcurrentQueue = concurrent;
-        Labels = labels;
         Queue = queue;
         UserQueue = new(settings.MaxQueue);
         _semaphore = new(settings.MaxConcurrent, settings.MaxConcurrent);
@@ -64,8 +62,6 @@ public class ServerConnection
         IsStopped = false;
 
         _ = Task.Run(async () => await RemoteUserQueue(token).ConfigureAwait(false), token);
-        _ = Task.Run(async () => await UpdateLabels(token).ConfigureAwait(false), token);
-
         Status.Report(ConnectionStatus.Connected);
         LogUtil.Log("Server initialized, waiting for connections...", "[TCP Listener]");
 
@@ -287,6 +283,7 @@ public class ServerConnection
         }
 
         await SendServerConfirmation(user, true, token).ConfigureAwait(false);
+        user.UserAuth = authObj;
         return authObj;
     }
 
@@ -300,15 +297,6 @@ public class ServerConnection
         catch (Exception ex)
         {
             LogUtil.Log($"Failed to send response to user.\n{ex.Message}", "[SendServerConfirmation]");
-        }
-    }
-
-    private async Task UpdateLabels(CancellationToken token)
-    {
-        while (!token.IsCancellationRequested)
-        {
-            await Task.Delay(0_100, token).ConfigureAwait(false);
-            Labels.Report((Settings.ConnectionsAccepted, Settings.UsersAuthenticated, Settings.EtumrepsRun));
         }
     }
 

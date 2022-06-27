@@ -40,9 +40,6 @@
             this.RTB_Logs = new System.Windows.Forms.RichTextBox();
             this.Button_Start = new System.Windows.Forms.Button();
             this.Button_Stop = new System.Windows.Forms.Button();
-            this.Label_Connections = new System.Windows.Forms.Label();
-            this.Label_Etumreps = new System.Windows.Forms.Label();
-            this.Label_Authenticated = new System.Windows.Forms.Label();
             this.PB_Ready = new System.Windows.Forms.PictureBox();
             this.Tab_Main.SuspendLayout();
             this.Tab_QueueDisplay.SuspendLayout();
@@ -215,30 +212,6 @@
             this.Button_Stop.UseVisualStyleBackColor = true;
             this.Button_Stop.Click += new System.EventHandler(this.Button_Stop_Click);
             // 
-            // Label_Connections
-            // 
-            this.Label_Connections.AutoSize = true;
-            this.Label_Connections.Location = new System.Drawing.Point(959, 21);
-            this.Label_Connections.Name = "Label_Connections";
-            this.Label_Connections.Size = new System.Drawing.Size(0, 15);
-            this.Label_Connections.TabIndex = 5;
-            // 
-            // Label_Etumreps
-            // 
-            this.Label_Etumreps.AutoSize = true;
-            this.Label_Etumreps.Location = new System.Drawing.Point(954, 51);
-            this.Label_Etumreps.Name = "Label_Etumreps";
-            this.Label_Etumreps.Size = new System.Drawing.Size(0, 15);
-            this.Label_Etumreps.TabIndex = 6;
-            // 
-            // Label_Authenticated
-            // 
-            this.Label_Authenticated.AutoSize = true;
-            this.Label_Authenticated.Location = new System.Drawing.Point(959, 35);
-            this.Label_Authenticated.Name = "Label_Authenticated";
-            this.Label_Authenticated.Size = new System.Drawing.Size(0, 15);
-            this.Label_Authenticated.TabIndex = 7;
-            // 
             // PB_Ready
             // 
             this.PB_Ready.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
@@ -259,15 +232,13 @@
             this.Controls.Add(this.Button_Stop);
             this.Controls.Add(this.Button_Start);
             this.Controls.Add(this.PB_Ready);
-            this.Controls.Add(this.Label_Authenticated);
-            this.Controls.Add(this.Label_Etumreps);
-            this.Controls.Add(this.Label_Connections);
             this.Controls.Add(this.Tab_Main);
             this.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             this.MaximizeBox = false;
             this.Name = "Main";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "EtumrepMMO.Server";
+            this.FormClosing += Main_FormClosing;
             this.Tab_Main.ResumeLayout(false);
             this.Tab_QueueDisplay.ResumeLayout(false);
             this.Tab_QueueDisplay.PerformLayout();
@@ -288,9 +259,6 @@
         private System.Windows.Forms.Button Button_Start;
         private System.Windows.Forms.Button Button_Stop;
         private System.Windows.Forms.PropertyGrid Grid_Settings;
-        private Label Label_Connections;
-        private Label Label_Etumreps;
-        private Label Label_Authenticated;
         private TabPage Tab_QueueDisplay;
         private TextBox TB_QueueList;
         private ListView LV_QueueList;

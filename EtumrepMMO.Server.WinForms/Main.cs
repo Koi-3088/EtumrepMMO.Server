@@ -27,7 +27,6 @@ public sealed partial class Main : Form
         {
             var text = File.ReadAllText(ConfigPath);
             Settings = JsonConvert.DeserializeObject<ServerSettings>(text, GetSettings()) ?? new ServerSettings();
-            UpdateLabels(Settings.ConnectionsAccepted, Settings.UsersAuthenticated, Settings.EtumrepsRun);
         }
         else
         {
@@ -36,14 +35,13 @@ public sealed partial class Main : Form
 
         var status = new Progress<ConnectionStatus>(UpdateStatusLamp);
         var concurrent = new Progress<(string, bool)>(x => UpdateCurrentlyProcessed(x.Item1, x.Item2));
-        var labels = new Progress<(int, int, int)>(x => UpdateLabels(x.Item1, x.Item2, x.Item3));
         var queue = new Progress<(string, bool)>(x => UpdateQueue(x.Item1, x.Item2));
 
         UpdateCurrentlyProcessed(_waiting, false);
         UpdateQueue(_noQueue, false);
 
         RTB_Logs.MaxLength = 32_767;
-        Connection = new(Settings, status, concurrent, labels, queue);
+        Connection = new(Settings, status, concurrent, queue);
         Grid_Settings.SelectedObject = Settings;
         LogUtil.Forwarders.Add(PostLog);
     }
@@ -142,16 +140,6 @@ public sealed partial class Main : Form
         ConnectionStatus.Connected => Color.LawnGreen,
         _ => Color.WhiteSmoke,
     };
-
-    private void UpdateLabels(int connections, int authentications, int etumreps)
-    {
-        lock (_concurrentLock)
-        {
-            Label_Connections.Text = string.Format(_connectionsText, connections);
-            Label_Authenticated.Text = string.Format(_authText, authentications);
-            Label_Etumreps.Text = string.Format(_etumrepText, etumreps);
-        }
-    }
 
     private void UpdateQueue(string text, bool insert)
     {
