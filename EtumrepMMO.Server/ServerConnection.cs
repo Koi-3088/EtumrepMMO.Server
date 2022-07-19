@@ -172,7 +172,7 @@ public class ServerConnection
                 int read = await user.Stream.ReadAsync(user.Buffer, token).ConfigureAwait(false);
                 count = read / EtumrepUtil.SIZE;
 
-                if (count is not (2 or 3 or 4))
+                if (count is < 2 or > 4)
                 {
                     LogUtil.Log($"{user.UserAuth.HostName}: Received an incorrect amount of data from {user.UserAuth.SeedCheckerName}.", "[User Queue]");
                     return;
@@ -180,6 +180,7 @@ public class ServerConnection
             }
             catch (Exception ex)
             {
+                ReportUserQueue(user.ToString(), false);
                 LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while reading data from {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[User Queue]");
                 return;
             }
