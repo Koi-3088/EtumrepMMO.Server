@@ -1,5 +1,6 @@
 ﻿using System.Net.Security;
 using System.Net.Sockets;
+using PKHeX.Core;
 
 namespace EtumrepMMO.Server;
 
@@ -20,4 +21,6 @@ internal class RemoteUser
 
     public bool IsAuthenticated { get; set; }
     public int EntryID { get; set; }
+
+    public IReadOnlyList<(PKM[], (ulong, byte)[])>? SeedFinderResult { get; set; }
 }

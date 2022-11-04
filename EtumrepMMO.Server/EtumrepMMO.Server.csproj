@@ -11,13 +11,13 @@
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="NLog" Version="4.7.13" />
-    <PackageReference Include="PKHeX.Core" Version="22.6.1" />
+    <PackageReference Include="PKHeX.Core" Version="22.9.13" />
   </ItemGroup>
 
   <Choose>
     <When Condition=" '$(Platform)' == 'x64' OR $(RuntimeIdentifier.EndsWith('x64')) ">
       <ItemGroup> <!-- x64 specific references -->
-        <PackageReference Include="Microsoft.Z3" Version="4.8.17" />
+        <PackageReference Include="Microsoft.Z3" Version="4.11.2" />
       </ItemGroup>
     </When>
     <Otherwise>

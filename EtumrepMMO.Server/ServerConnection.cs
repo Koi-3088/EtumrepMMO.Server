@@ -5,6 +5,7 @@ using System.Text;
 using System.Diagnostics;
 using System.Collections.Concurrent;
 using Newtonsoft.Json;
+using PKHeX.Core;
 
 namespace EtumrepMMO.Server;
 
@@ -12,13 +13,13 @@ public class ServerConnection
 {
     private ServerSettings Settings { get; }
     private TcpListener Listener { get; set; }
-    private BlockingCollection<RemoteUser> UserQueue { get; }
+    private BlockingCollection<RemoteUser> UserQueue_SeedFinder { get; }
     private IProgress<ConnectionStatus> Status { get; }
     private IProgress<(string, bool)> ConcurrentQueue { get; }
     private IProgress<(string, bool)> Queue { get; }
     private bool IsStopped { get; set; }
 
-    private readonly SemaphoreSlim _semaphore;
+    private readonly SemaphoreSlim _semaphore_SeedFinder;
     private int _entryID;
 
     private const int DefaultTimeout = 60_000; // 60 seconds
@@ -29,8 +30,8 @@ public class ServerConnection
         Status = status;
         ConcurrentQueue = concurrent;
         Queue = queue;
-        UserQueue = new(settings.MaxQueue);
-        _semaphore = new(settings.MaxConcurrent, settings.MaxConcurrent);
+        UserQueue_SeedFinder = new(settings.MaxQueue);
+        _semaphore_SeedFinder = new(settings.MaxConcurrent, settings.MaxConcurrent);
 
         Listener = new(IPAddress.Any, settings.Port)
         {
@@ -55,41 +56,52 @@ public class ServerConnection
         }
     }
 
+    private async Task Reconnect()
+    {
+        await Stop().ConfigureAwait(false);
+        Status.Report(ConnectionStatus.Connecting);
+        Listener = new(IPAddress.Any, Settings.Port)
+        {
+            Server =
+            {
+                ReceiveTimeout = DefaultTimeout,
+                SendTimeout = DefaultTimeout,
+                LingerState = new(true, 20),
+            },
+        };
+
+        Listener.Start(100);
+        Status.Report(ConnectionStatus.Connected);
+        IsStopped = false;
+        LogUtil.Log("TCP Listener was restarted, waiting for connections...", "[TCP Listener]");
+    }
+
     public async Task MainAsync(CancellationToken token)
     {
         Status.Report(ConnectionStatus.Connecting);
         Listener.Start(100);
         IsStopped = false;
 
-        _ = Task.Run(async () => await RemoteUserQueue(token).ConfigureAwait(false), token);
+        _ = Task.Run(async () => await PlaSeedFinderQueue(token).ConfigureAwait(false), token);
         Status.Report(ConnectionStatus.Connected);
         LogUtil.Log("Server initialized, waiting for connections...", "[TCP Listener]");
 
         while (!token.IsCancellationRequested)
         {
-            bool pending;
             try
             {
-                pending = Listener.Pending();
+                if (Listener.Pending())
+                    _ = Task.Run(async () => await AcceptPendingConnection(token).ConfigureAwait(false), token);
+                await Task.Delay(0_200, token).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                LogUtil.Log($"TCP Listener has crashed, trying to restart the connection.\n{ex.Message}", "[TCP Listener]");
-                Listener = new(IPAddress.Any, Settings.Port)
+                if (ex is not OperationCanceledException)
                 {
-                    Server =
-                    {
-                        LingerState = new(true, 20),
-                    },
-                };
-
-                pending = false;
-                LogUtil.Log("TCP Listener was restarted, waiting for connections...", "[TCP Listener]");
+                    LogUtil.Log($"TCP Listener has crashed, trying to restart the connection.\n{ex.Message}", "[TCP Listener]");
+                    await Reconnect().ConfigureAwait(false);
+                }
             }
-
-            if (pending)
-                _ = Task.Run(async () => await AcceptPendingConnection(token).ConfigureAwait(false), token);
-            await Task.Delay(0_200, token).ConfigureAwait(false);
         }
     }
 
@@ -122,7 +134,7 @@ public class ServerConnection
         }
         Settings.AddUsersAuthenticated();
 
-        bool enqueue = UserQueue.Count < UserQueue.BoundedCapacity;
+        bool enqueue = UserQueue_SeedFinder.Count < UserQueue_SeedFinder.BoundedCapacity;
         await SendServerConfirmation(user, enqueue, token).ConfigureAwait(false);
 
         if (enqueue)
@@ -132,7 +144,7 @@ public class ServerConnection
             // Increment queue entry ID.
             user.EntryID = Interlocked.Increment(ref _entryID);
             ReportUserQueue(user.ToString(), true);
-            UserQueue.Add(user, token);
+            UserQueue_SeedFinder.Add(user, token);
             return;
         }
 
@@ -140,31 +152,31 @@ public class ServerConnection
         DisposeStream(user);
     }
 
-    private async Task RemoteUserQueue(CancellationToken token)
+    private async Task PlaSeedFinderQueue(CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
             try
             {
-                await _semaphore.WaitAsync(token).ConfigureAwait(false);
-                var user = UserQueue.Take(token);
-                _ = Task.Run(async () => await RunEtumrepAsync(user, token).ConfigureAwait(false), token);
+                await _semaphore_SeedFinder.WaitAsync(token).ConfigureAwait(false);
+                var user = UserQueue_SeedFinder.Take(token);
+                _ = Task.Run(async () => await RunSeedFinderAsync(user, token).ConfigureAwait(false), token);
             }
             catch (Exception ex)
             {
-                LogUtil.Log($"Error occurred when queuing a user:\n{ex.Message}", "[User Queue]");
-                _semaphore.Release();
+                LogUtil.Log($"Error occurred when queuing a user:\n{ex.Message}", "[User Queue PLA-SeedFinder]");
+                _semaphore_SeedFinder.Release();
             }
         }
     }
 
-    private async Task RunEtumrepAsync(RemoteUser user, CancellationToken token)
+    private async Task RunSeedFinderAsync(RemoteUser user, CancellationToken token)
     {
         var checker = $"{user.EntryID}. {user.UserAuth.SeedCheckerName} ({user.UserAuth.SeedCheckerID})";
         ReportCurrentlyProcessed(checker, true);
-        LogUtil.Log($"{user.UserAuth.HostName}: Attempting to read PKM data from {user.UserAuth.SeedCheckerName}.", "[User Queue]");
+        LogUtil.Log($"{user.UserAuth.HostName}: Attempting to read PKM data from {user.UserAuth.SeedCheckerName}.", "[SeedFinder Queue]");
 
-        async Task EtumrepFunc()
+        async Task<bool> SeedFinderFunc()
         {
             int count;
             try
@@ -172,54 +184,128 @@ public class ServerConnection
                 int read = await user.Stream.ReadAsync(user.Buffer, token).ConfigureAwait(false);
                 count = read / EtumrepUtil.SIZE;
 
-                if (count is < 2 or > 4)
+                if (read % EtumrepUtil.SIZE != 0 || count is < 2 or > 4)
                 {
-                    LogUtil.Log($"{user.UserAuth.HostName}: Received an incorrect amount of data from {user.UserAuth.SeedCheckerName}.", "[User Queue]");
-                    return;
+                    LogUtil.Log($"{user.UserAuth.HostName}: Received an incorrect amount of data from {user.UserAuth.SeedCheckerName}.", "[SeedFinder Queue]");
+                    return false;
                 }
             }
             catch (Exception ex)
             {
-                ReportUserQueue(user.ToString(), false);
-                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while reading data from {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[User Queue]");
-                return;
+                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while reading data from {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[SeedFinder Queue]");
+                return false;
             }
-            LogUtil.Log($"{user.UserAuth.HostName}: Beginning seed calculation for {user.UserAuth.SeedCheckerName}...", "[User Queue]");
+            LogUtil.Log($"{user.UserAuth.HostName}: Beginning seed calculation for {user.UserAuth.SeedCheckerName}...", "[SeedFinder Queue]");
 
-            var list = EtumrepUtil.GetPokeList(user.Buffer, count);
             var sw = new Stopwatch();
-
-            sw.Start();
-            var seed = EtumrepUtil.CalculateSeed(list);
-            sw.Stop();
-
-            Settings.AddEtumrepsRun();
-            LogUtil.Log($"{user.UserAuth.HostName}: Seed ({seed}) calculation for {user.UserAuth.SeedCheckerName} complete ({sw.Elapsed}). Attempting to send the result...", "[User Queue]");
-
-            var bytes = BitConverter.GetBytes(seed);
+            IReadOnlyList<(PKM[], (ulong, byte)[])> seeds;
             try
             {
-                ReportUserQueue(user.ToString(), false);
-                await user.Stream.WriteAsync(bytes, token).ConfigureAwait(false);
-                LogUtil.Log($"{user.UserAuth.HostName}: Results were sent, removing from queue.", "[User Queue]");
+                var list = EtumrepUtil.GetPokeList(user.Buffer, count).ToArray();
+                if (list.Length >= 1)
+                {
+                    sw.Start();
+                    seeds = EtumrepUtil.GetSeeds(list);
+                    sw.Stop();
+                }
+                else throw new Exception($"Too much malformed data received from {checker}, dequeueing...");
             }
             catch (Exception ex)
             {
-                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while sending results to {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[User Queue]");
+                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while calculating seed for {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[SeedFinder Queue]");
+                sw.Reset();
+                return false;
+            }
+
+            if (seeds.Count is 0)
+            {
+                try
+                {
+                    var bytes = BitConverter.GetBytes(0);
+                    LogUtil.Log($"{user.UserAuth.HostName}: No seeds were found, sending response.", "[SeedFinder Queue]");
+                    await user.Stream.WriteAsync(bytes, token).ConfigureAwait(false);
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while sending response to {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[SeedFinder Queue]");
+                    return false;
+                }
+            }
+
+            LogUtil.Log($"{user.UserAuth.HostName}: PLA-SeedFinder calculation for {user.UserAuth.SeedCheckerName} complete ({sw.Elapsed}).", "[SeedFinder Queue]");
+            user.SeedFinderResult = seeds;
+            await RunZ3Async(user, checker, token).ConfigureAwait(false);
+            return true;
+        }
+
+        try
+        {
+            if (!await SeedFinderFunc().ConfigureAwait(false))
+            {
+                ReportUserQueue(user.ToString(), false);
+                ReportCurrentlyProcessed(checker, false);
+                DisposeStream(user);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while processing {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[SeedFinderFunc]");
+            ReportUserQueue(user.ToString(), false);
+            ReportCurrentlyProcessed(checker, false);
+            DisposeStream(user);
+        }
+
+        _semaphore_SeedFinder.Release();
+    }
+
+    private async Task RunZ3Async(RemoteUser user, string seedChecker, CancellationToken token)
+    {
+        LogUtil.Log($"{user.UserAuth.HostName}: Attempting to run Z3 for final seed calculation for {user.UserAuth.SeedCheckerName}.", "[Z3]");
+
+        async Task Z3Func()
+        {
+            var seeds = user.SeedFinderResult!;
+            var sw = new Stopwatch();
+            ulong seed;
+            try
+            {
+                sw.Start();
+                seed = EtumrepUtil.CalculateSeed(seeds);
+                sw.Stop();
+            }
+            catch (Exception ex)
+            {
+                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while calculating seed for {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[Z3]");
+                sw.Reset();
+                return;
+            }
+
+            LogUtil.Log($"{user.UserAuth.HostName}: Seed ({seed}) calculation for {user.UserAuth.SeedCheckerName} complete ({sw.Elapsed}). Attempting to send the result...", "[Z3]");
+            var bytes = BitConverter.GetBytes(seed);
+            try
+            {
+                await user.Stream.WriteAsync(bytes, token).ConfigureAwait(false);
+                LogUtil.Log($"{user.UserAuth.HostName}: Results were sent, removing from queue.", "[Z3]");
+            }
+            catch (Exception ex)
+            {
+                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while sending results to {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[Z3]");
             }
         }
 
         try
         {
-            await EtumrepFunc().ConfigureAwait(false);
+            await Z3Func().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while processing {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[EtumrepFunc]");
+            LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while processing {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[Z3]");
         }
 
-        ReportCurrentlyProcessed(checker, false);
-        _semaphore.Release();
+        Settings.AddEtumrepsRun();
+        ReportUserQueue(user.ToString(), false);
+        ReportCurrentlyProcessed(seedChecker, false);
         DisposeStream(user);
     }
 
@@ -309,7 +395,7 @@ public class ServerConnection
         try
         {
             user.Client.Close();
-            user.Stream.Dispose();
+            user.Stream.Close();
         }
         catch (Exception ex)
         {

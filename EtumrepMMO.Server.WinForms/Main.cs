@@ -16,9 +16,6 @@ public sealed partial class Main : Form
 
     private const string _waiting = "Waiting for users...";
     private const string _noQueue = "No users in queue...";
-    private const string _connectionsText = "Connections accepted: {0}";
-    private const string _authText = "Users authenticated: {0}";
-    private const string _etumrepText = "EtumrepMMOs run: {0}";
 
     public Main()
     {
