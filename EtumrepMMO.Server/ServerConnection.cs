@@ -14,12 +14,14 @@ public class ServerConnection
     private ServerSettings Settings { get; }
     private TcpListener Listener { get; set; }
     private BlockingCollection<RemoteUser> UserQueue_SeedFinder { get; }
+    private BlockingCollection<RemoteUser> UserQueue_Z3 { get; }
     private IProgress<ConnectionStatus> Status { get; }
     private IProgress<(string, bool)> ConcurrentQueue { get; }
     private IProgress<(string, bool)> Queue { get; }
     private bool IsStopped { get; set; }
 
     private readonly SemaphoreSlim _semaphore_SeedFinder;
+    private readonly SemaphoreSlim _semaphore_Z3;
     private int _entryID;
 
     private const int DefaultTimeout = 60_000; // 60 seconds
@@ -31,7 +33,9 @@ public class ServerConnection
         ConcurrentQueue = concurrent;
         Queue = queue;
         UserQueue_SeedFinder = new(settings.MaxQueue);
+        UserQueue_Z3 = new();
         _semaphore_SeedFinder = new(settings.MaxConcurrent, settings.MaxConcurrent);
+        _semaphore_Z3 = new(1, 1);
 
         Listener = new(IPAddress.Any, settings.Port)
         {
@@ -83,6 +87,7 @@ public class ServerConnection
         IsStopped = false;
 
         _ = Task.Run(async () => await PlaSeedFinderQueue(token).ConfigureAwait(false), token);
+        _ = Task.Run(async () => await Z3Queue(token).ConfigureAwait(false), token);
         Status.Report(ConnectionStatus.Connected);
         LogUtil.Log("Server initialized, waiting for connections...", "[TCP Listener]");
 
@@ -170,6 +175,24 @@ public class ServerConnection
         }
     }
 
+    private async Task Z3Queue(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                await _semaphore_Z3.WaitAsync(token).ConfigureAwait(false);
+                var user = UserQueue_Z3.Take(token);
+                await RunZ3Async(user, token).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LogUtil.Log($"Error occurred when queuing a user:\n{ex.Message}", "[User Queue Z3]");
+                _semaphore_Z3.Release();
+            }
+        }
+    }
+
     private async Task RunSeedFinderAsync(RemoteUser user, CancellationToken token)
     {
         var checker = $"{user.EntryID}. {user.UserAuth.SeedCheckerName} ({user.UserAuth.SeedCheckerID})";
@@ -235,7 +258,7 @@ public class ServerConnection
 
             LogUtil.Log($"{user.UserAuth.HostName}: PLA-SeedFinder calculation for {user.UserAuth.SeedCheckerName} complete ({sw.Elapsed}).", "[SeedFinder Queue]");
             user.SeedFinderResult = seeds;
-            await RunZ3Async(user, checker, token).ConfigureAwait(false);
+            UserQueue_Z3.Add(user, token);
             return true;
         }
 
@@ -259,9 +282,10 @@ public class ServerConnection
         _semaphore_SeedFinder.Release();
     }
 
-    private async Task RunZ3Async(RemoteUser user, string seedChecker, CancellationToken token)
+    private async Task RunZ3Async(RemoteUser user, CancellationToken token)
     {
-        LogUtil.Log($"{user.UserAuth.HostName}: Attempting to run Z3 for final seed calculation for {user.UserAuth.SeedCheckerName}.", "[Z3]");
+        var checker = $"{user.EntryID}. {user.UserAuth.SeedCheckerName} ({user.UserAuth.SeedCheckerID})";
+        LogUtil.Log($"{user.UserAuth.HostName}: Attempting to run Z3 for final seed calculation for {user.UserAuth.SeedCheckerName}.", "[Z3 Queue]");
 
         async Task Z3Func()
         {
@@ -276,21 +300,21 @@ public class ServerConnection
             }
             catch (Exception ex)
             {
-                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while calculating seed for {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[Z3]");
+                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while calculating seed for {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[Z3 Queue]");
                 sw.Reset();
                 return;
             }
 
-            LogUtil.Log($"{user.UserAuth.HostName}: Seed ({seed}) calculation for {user.UserAuth.SeedCheckerName} complete ({sw.Elapsed}). Attempting to send the result...", "[Z3]");
+            LogUtil.Log($"{user.UserAuth.HostName}: Seed ({seed}) calculation for {user.UserAuth.SeedCheckerName} complete ({sw.Elapsed}). Attempting to send the result...", "[Z3 Queue]");
             var bytes = BitConverter.GetBytes(seed);
             try
             {
                 await user.Stream.WriteAsync(bytes, token).ConfigureAwait(false);
-                LogUtil.Log($"{user.UserAuth.HostName}: Results were sent, removing from queue.", "[Z3]");
+                LogUtil.Log($"{user.UserAuth.HostName}: Results were sent, removing from queue.", "[Z3 Queue]");
             }
             catch (Exception ex)
             {
-                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while sending results to {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[Z3]");
+                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while sending results to {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[Z3 Queue]");
             }
         }
 
@@ -300,13 +324,14 @@ public class ServerConnection
         }
         catch (Exception ex)
         {
-            LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while processing {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[Z3]");
+            LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while processing {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[Z3 Queue]");
         }
 
         Settings.AddEtumrepsRun();
         ReportUserQueue(user.ToString(), false);
-        ReportCurrentlyProcessed(seedChecker, false);
+        ReportCurrentlyProcessed(checker, false);
         DisposeStream(user);
+        _semaphore_Z3.Release();
     }
 
     private static async Task<RemoteUser?> AuthenticateConnection(TcpClient client)
