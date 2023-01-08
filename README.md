@@ -1,6 +1,6 @@
 # EtumrepMMO.Server
 
-Server application for remote, authorized bot clients to process MMO data on. Client supplies the required data, server sends back the result.
+Server application for remote, authorized bot clients to process PLA MO/MMO/MultiSpawner data on. Client supplies the required data, server calculates and sends back the result.
 Leverages EtumrepMMO.Lib, PLA-SeedFinder, and PKHeX.Core to find the group seed.
 
 Requirements:
@@ -12,6 +12,7 @@ Usage:
 - Compile the EtumrepMMO.Server.WinForms project using the x64 build configuration.
 - Configure settings as desired (clients have to be whitelisted).
 - Configure your router and/or firewall to allow connections to your specified port (may also need to set up port forwarding).
+- Use either a SysBot.NET fork that establishes a client/server connection or write your own.
 - Click 'Start' to begin listening for connections.
 
 Credits:
