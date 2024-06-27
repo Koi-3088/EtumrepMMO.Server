@@ -142,7 +142,7 @@ public sealed partial class Main : Form
     {
         lock (_queueLock)
         {
-            var item = LV_QueueList.FindItemWithText(_noQueue);
+            var item = LV_QueueList.FindItemWithText(_noQueue)!;
             LV_QueueList.Items.Remove(item);
 
             if (insert)
@@ -151,7 +151,7 @@ public sealed partial class Main : Form
             }
             else
             {
-                item = LV_QueueList.FindItemWithText(text);
+                item = LV_QueueList.FindItemWithText(text)!;
                 LV_QueueList.Items.Remove(item);
 
                 if (LV_QueueList.Items.Count is 0)
@@ -164,7 +164,7 @@ public sealed partial class Main : Form
     {
         lock (_concurrentLock)
         {
-            var item = LV_Concurrent.FindItemWithText(_waiting);
+            var item = LV_Concurrent.FindItemWithText(_waiting)!;
             LV_Concurrent.Items.Remove(item);
 
             if (insert)
@@ -173,7 +173,7 @@ public sealed partial class Main : Form
             }
             else
             {
-                item = LV_Concurrent.FindItemWithText(text);
+                item = LV_Concurrent.FindItemWithText(text)!;
                 LV_Concurrent.Items.Remove(item);
 
                 if (LV_Concurrent.Items.Count is 0)

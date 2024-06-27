@@ -1,23 +1,19 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <LangVersion>11</LangVersion>
     <Platforms>x64;x86</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="NLog" Version="4.7.13" />
-    <PackageReference Include="PKHeX.Core" Version="23.2.27" />
+    <PackageReference Include="PKHeX.Core" Version="24.1.12" />
   </ItemGroup>
 
   <Choose>
     <When Condition=" '$(Platform)' == 'x64' OR $(RuntimeIdentifier.EndsWith('x64')) ">
       <ItemGroup> <!-- x64 specific references -->
-        <PackageReference Include="Microsoft.Z3" Version="4.11.2" />
+        <PackageReference Include="Microsoft.Z3" Version="4.12.2" />
       </ItemGroup>
     </When>
     <Otherwise>
