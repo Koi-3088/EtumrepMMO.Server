@@ -33,7 +33,7 @@ public class ServerConnection
         ConcurrentQueue = concurrent;
         Queue = queue;
         UserQueue_SeedFinder = new(settings.MaxQueue);
-        UserQueue_Z3 = new();
+        UserQueue_Z3 = [];
         _semaphore_SeedFinder = new(settings.MaxConcurrent, settings.MaxConcurrent);
         _semaphore_Z3 = new(1, 1);
 
@@ -77,7 +77,7 @@ public class ServerConnection
         Listener.Start(100);
         Status.Report(ConnectionStatus.Connected);
         IsStopped = false;
-        LogUtil.Log("TCP Listener was restarted, waiting for connections...", "[TCP Listener]");
+        LogUtil.Log("TCP Listener was restarted. Waiting for connections...", "[TCP Listener]");
     }
 
     public async Task MainAsync(CancellationToken token)
@@ -89,7 +89,7 @@ public class ServerConnection
         _ = Task.Run(async () => await PlaSeedFinderQueue(token).ConfigureAwait(false), token);
         _ = Task.Run(async () => await Z3Queue(token).ConfigureAwait(false), token);
         Status.Report(ConnectionStatus.Connected);
-        LogUtil.Log("Server initialized, waiting for connections...", "[TCP Listener]");
+        LogUtil.Log("Server initialized. Waiting for connections...", "[TCP Listener]");
 
         while (!token.IsCancellationRequested)
         {
@@ -103,7 +103,7 @@ public class ServerConnection
             {
                 if (ex is not OperationCanceledException)
                 {
-                    LogUtil.Log($"TCP Listener has crashed, trying to restart the connection.\n{ex.Message}", "[TCP Listener]");
+                    LogUtil.Log($"TCP Listener has crashed. Trying to restart the connection.\n{ex.Message}", "[TCP Listener]");
                     await Reconnect().ConfigureAwait(false);
                 }
             }
@@ -116,7 +116,7 @@ public class ServerConnection
         var remoteClient = await Listener.AcceptTcpClientAsync(token).ConfigureAwait(false);
         Settings.AddConnectionsAccepted();
 
-        LogUtil.Log("A user has connected, authenticating the connection...", "[TCP Listener]");
+        LogUtil.Log("A user has connected. Authenticating the connection...", "[TCP Listener]");
         RemoteUser? user = await AuthenticateConnection(remoteClient).ConfigureAwait(false);
         if (user is null)
         {
@@ -129,7 +129,7 @@ public class ServerConnection
             return;
         }
 
-        LogUtil.Log("Connection authenticated, attempting to authenticate the user...", "[TCP Listener]");
+        LogUtil.Log("Connection authenticated. Attempting to authenticate the user...", "[TCP Listener]");
         var auth = await AuthenticateUser(user, token).ConfigureAwait(false);
         if (auth is null)
         {
@@ -144,7 +144,7 @@ public class ServerConnection
 
         if (enqueue)
         {
-            LogUtil.Log($"{user.UserAuth.HostName} ({user.UserAuth.HostID}) was successfully authenticated, queueing...", "[TCP Listener]");
+            LogUtil.Log($"{user.UserAuth.HostName} ({user.UserAuth.HostID}) was successfully authenticated. Queueing...", "[TCP Listener]");
 
             // Increment queue entry ID.
             user.EntryID = Interlocked.Increment(ref _entryID);
@@ -153,7 +153,7 @@ public class ServerConnection
             return;
         }
 
-        LogUtil.Log($"{user.UserAuth.HostName} ({user.UserAuth.HostID}) was successfully authenticated but the queue is full, closing the connection...", "[TCP Listener]");
+        LogUtil.Log($"{user.UserAuth.HostName} ({user.UserAuth.HostID}) was successfully authenticated but the queue is full. Closing the connection...", "[TCP Listener]");
         DisposeStream(user);
     }
 
@@ -169,7 +169,11 @@ public class ServerConnection
             }
             catch (Exception ex)
             {
-                LogUtil.Log($"Error occurred when queuing a user:\n{ex.Message}", "[User Queue PLA-SeedFinder]");
+                if (ex is not OperationCanceledException)
+                {
+                    LogUtil.Log($"Error occurred when queuing a user:\n{ex.Message}", "[User Queue Z3]");
+                }
+
                 _semaphore_SeedFinder.Release();
             }
         }
@@ -187,7 +191,11 @@ public class ServerConnection
             }
             catch (Exception ex)
             {
-                LogUtil.Log($"Error occurred when queuing a user:\n{ex.Message}", "[User Queue Z3]");
+                if (ex is not OperationCanceledException)
+                {
+                    LogUtil.Log($"Error occurred when queuing a user:\n{ex.Message}", "[User Queue Z3]");
+                }
+
                 _semaphore_Z3.Release();
             }
         }
@@ -231,7 +239,7 @@ public class ServerConnection
                     seeds = EtumrepUtil.GetSeeds(list);
                     sw.Stop();
                 }
-                else throw new Exception($"Too much malformed data received from {checker}, dequeueing...");
+                else throw new Exception($"Too much malformed data received from {checker}. Dequeueing...");
             }
             catch (Exception ex)
             {

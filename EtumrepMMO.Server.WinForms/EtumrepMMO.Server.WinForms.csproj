@@ -4,7 +4,7 @@
     <OutputType>WinExe</OutputType>
 	<TargetFramework>net8.0-windows</TargetFramework>
 	<UseWindowsForms>true</UseWindowsForms>
-    <Platforms>x64;x86</Platforms>
+    <Platforms>x64</Platforms>
     <StartupObject>EtumrepMMO.Server.WinForms.Program</StartupObject>
   </PropertyGroup>
 

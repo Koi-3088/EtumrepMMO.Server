@@ -9,8 +9,8 @@ namespace EtumrepMMO.Server;
 
 public static class LogUtil
 {
-    public static readonly List<Action<string, string>> Forwarders = new();
-    private static readonly ILogger Logger = LogManager.GetCurrentClassLogger();
+    public static readonly List<Action<string, string>> Forwarders = [];
+    private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
     public static DateTime LastLogged { get; private set; } = DateTime.Now;
 

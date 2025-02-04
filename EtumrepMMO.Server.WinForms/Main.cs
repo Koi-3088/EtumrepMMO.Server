@@ -82,6 +82,7 @@ public sealed partial class Main : Form
                 LV_QueueList.Items.Clear();
             }
         }
+
         Task.WhenAny(WaitUntilDone(), Task.Delay(1_000)).ConfigureAwait(true).GetAwaiter().GetResult();
         LogUtil.Log("Server has been shut down.", "[Stop Button Event]");
     }

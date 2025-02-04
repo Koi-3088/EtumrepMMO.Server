@@ -1,13 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Platforms>x64;x86</Platforms>
+    <Platforms>x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="NLog" Version="4.7.13" />
-    <PackageReference Include="PKHeX.Core" Version="24.1.12" />
+    <PackageReference Include="PKHeX.Core" Version="24.11.11" />
   </ItemGroup>
 
   <Choose>

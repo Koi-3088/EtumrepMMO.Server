@@ -23,10 +23,10 @@ public class ServerSettings
     public int MaxConcurrent { get; set; } = 2;
 
     [Category(Startup), Description("Whitelisted clients (bot hosts).")]
-    public List<DiscordUser> HostWhitelist { get; set; } = new();
+    public List<DiscordUser> HostWhitelist { get; set; } = [];
 
     [Category(Startup), Description("Blacklisted users.")]
-    public List<DiscordUser> UserBlacklist { get; set; } = new();
+    public List<DiscordUser> UserBlacklist { get; set; } = [];
 
     [Category(User), Description("Discord user object.")]
     public class DiscordUser
