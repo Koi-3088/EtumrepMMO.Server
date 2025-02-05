@@ -103,7 +103,7 @@ public class ServerConnection
             {
                 if (ex is not OperationCanceledException)
                 {
-                    LogUtil.Log($"TCP Listener has crashed. Trying to restart the connection.\n{ex.Message}", "[TCP Listener]");
+                    LogUtil.Log($"TCP Listener has crashed. Trying to restart the connection.\n{ex.Message}\n{ex.InnerException}", "[TCP Listener]");
                     await Reconnect().ConfigureAwait(false);
                 }
             }
@@ -171,7 +171,7 @@ public class ServerConnection
             {
                 if (ex is not OperationCanceledException)
                 {
-                    LogUtil.Log($"Error occurred when queuing a user:\n{ex.Message}", "[User Queue Z3]");
+                    LogUtil.Log($"Error occurred when queuing a user:\n{ex.Message}\n{ex.InnerException}", "[User Queue Z3]");
                 }
 
                 _semaphore_SeedFinder.Release();
@@ -193,7 +193,7 @@ public class ServerConnection
             {
                 if (ex is not OperationCanceledException)
                 {
-                    LogUtil.Log($"Error occurred when queuing a user:\n{ex.Message}", "[User Queue Z3]");
+                    LogUtil.Log($"Error occurred when queuing a user:\n{ex.Message}\n{ex.InnerException}", "[User Queue Z3]");
                 }
 
                 _semaphore_Z3.Release();
@@ -223,7 +223,7 @@ public class ServerConnection
             }
             catch (Exception ex)
             {
-                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while reading data from {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[SeedFinder Queue]");
+                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while reading data from {user.UserAuth.SeedCheckerName}.\n{ex.Message}\n{ex.InnerException}", "[SeedFinder Queue]");
                 return false;
             }
             LogUtil.Log($"{user.UserAuth.HostName}: Beginning seed calculation for {user.UserAuth.SeedCheckerName}...", "[SeedFinder Queue]");
@@ -243,7 +243,7 @@ public class ServerConnection
             }
             catch (Exception ex)
             {
-                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while calculating seed for {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[SeedFinder Queue]");
+                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while calculating seed for {user.UserAuth.SeedCheckerName}.\n{ex.Message}\n{ex.InnerException}", "[SeedFinder Queue]");
                 sw.Reset();
                 return false;
             }
@@ -259,7 +259,7 @@ public class ServerConnection
                 }
                 catch (Exception ex)
                 {
-                    LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while sending response to {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[SeedFinder Queue]");
+                    LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while sending response to {user.UserAuth.SeedCheckerName}.\n{ex.Message}\n{ex.InnerException}", "[SeedFinder Queue]");
                     return false;
                 }
             }
@@ -281,7 +281,7 @@ public class ServerConnection
         }
         catch (Exception ex)
         {
-            LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while processing {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[SeedFinderFunc]");
+            LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while processing {user.UserAuth.SeedCheckerName}.\n{ex.Message}\n{ex.InnerException}", "[SeedFinderFunc]");
             ReportUserQueue(user.ToString(), false);
             ReportCurrentlyProcessed(checker, false);
             DisposeStream(user);
@@ -322,7 +322,7 @@ public class ServerConnection
             }
             catch (Exception ex)
             {
-                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while sending results to {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[Z3 Queue]");
+                LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while sending results to {user.UserAuth.SeedCheckerName}.\n{ex.Message}\n{ex.InnerException}", "[Z3 Queue]");
             }
         }
 
@@ -332,7 +332,7 @@ public class ServerConnection
         }
         catch (Exception ex)
         {
-            LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while processing {user.UserAuth.SeedCheckerName}.\n{ex.Message}", "[Z3 Queue]");
+            LogUtil.Log($"{user.UserAuth.HostName}: Error occurred while processing {user.UserAuth.SeedCheckerName}.\n{ex.Message}\n{ex.InnerException}", "[Z3 Queue]");
         }
 
         Settings.AddEtumrepsRun();
@@ -360,7 +360,7 @@ public class ServerConnection
         }
         catch (Exception ex)
         {
-            LogUtil.Log($"Failed to authenticate user.\n{ex.Message}", "[Connection Authentication]");
+            LogUtil.Log($"Failed to authenticate user.\n{ex.Message}\n{ex.InnerException}", "[Connection Authentication]");
             return null;
         }
     }
@@ -377,7 +377,7 @@ public class ServerConnection
         }
         catch (Exception ex)
         {
-            LogUtil.Log($"Failed to read user authentication data.\n{ex.Message}", "[User Authentication]");
+            LogUtil.Log($"Failed to read user authentication data.\n{ex.Message}\n{ex.InnerException}", "[User Authentication]");
             return null;
         }
 
@@ -416,7 +416,7 @@ public class ServerConnection
         }
         catch (Exception ex)
         {
-            LogUtil.Log($"Failed to send response to user.\n{ex.Message}", "[SendServerConfirmation]");
+            LogUtil.Log($"Failed to send response to user.\n{ex.Message}\n{ex.InnerException}", "[SendServerConfirmation]");
         }
     }
 

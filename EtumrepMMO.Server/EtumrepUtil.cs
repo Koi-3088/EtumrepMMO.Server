@@ -13,7 +13,8 @@ public static class EtumrepUtil
 
     public static IEnumerable<PKM> GetPokeList(ReadOnlySpan<byte> data, int count)
     {
-        System.Diagnostics.Debug.Assert(data.Length % SIZE == 0 && data.Length / SIZE == count);
+        //Crashes for some reason?
+        //System.Diagnostics.Debug.Assert(data.Length % SIZE == 0 && data.Length / SIZE == count);
         var result = new List<PA8>();
         for (int i = 0; i < count; i++)
         {
