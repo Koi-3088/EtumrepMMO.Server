@@ -8,14 +8,14 @@ internal class RemoteUser
 {
     public override string ToString() => $"{EntryID}. {UserAuth}";
 
-    internal RemoteUser(TcpClient client, AuthenticatedStream stream)
+    internal RemoteUser(TcpClient client, NetworkStream stream)
     {
         Client = client;
         Stream = stream;
     }
 
     public TcpClient Client { get; }
-    public AuthenticatedStream Stream { get; }
+    public NetworkStream Stream { get; }
     public UserAuth UserAuth { get; set; } = new();
     public byte[] Buffer { get; } = new byte[EtumrepUtil.MAXCOUNT * EtumrepUtil.SIZE];
 

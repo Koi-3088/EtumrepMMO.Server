@@ -1,6 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
-using System.Net.Security;
+using System.Net.NetworkInformation;
 using System.Text;
 using System.Diagnostics;
 using System.Collections.Concurrent;
@@ -22,6 +22,7 @@ public class ServerConnection
 
     private readonly SemaphoreSlim _semaphore_SeedFinder;
     private readonly SemaphoreSlim _semaphore_Z3;
+    private readonly bool ipv6;
     private int _entryID;
 
     private const int DefaultTimeout = 60_000; // 60 seconds
@@ -37,13 +38,15 @@ public class ServerConnection
         _semaphore_SeedFinder = new(settings.MaxConcurrent, settings.MaxConcurrent);
         _semaphore_Z3 = new(1, 1);
 
-        Listener = new(IPAddress.Any, settings.Port)
+        ipv6 = NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(x => x.Supports(NetworkInterfaceComponent.IPv6)) is not null;
+        Listener = new(ipv6 ? IPAddress.IPv6Any : IPAddress.Any, settings.Port)
         {
             Server =
             {
                 ReceiveTimeout = DefaultTimeout,
                 SendTimeout = DefaultTimeout,
                 LingerState = new(true, 20),
+                DualMode = ipv6,
             },
         };
     }
@@ -64,13 +67,15 @@ public class ServerConnection
     {
         await Stop().ConfigureAwait(false);
         Status.Report(ConnectionStatus.Connecting);
-        Listener = new(IPAddress.Any, Settings.Port)
+
+        Listener = new(ipv6 ? IPAddress.IPv6Any : IPAddress.Any, Settings.Port)
         {
             Server =
             {
                 ReceiveTimeout = DefaultTimeout,
                 SendTimeout = DefaultTimeout,
                 LingerState = new(true, 20),
+                DualMode = ipv6,
             },
         };
 
@@ -116,22 +121,17 @@ public class ServerConnection
         var remoteClient = await Listener.AcceptTcpClientAsync(token).ConfigureAwait(false);
         Settings.AddConnectionsAccepted();
 
-        LogUtil.Log("A user has connected. Authenticating the connection...", "[TCP Listener]");
-        RemoteUser? user = await AuthenticateConnection(remoteClient).ConfigureAwait(false);
+        LogUtil.Log("A user has connected...", "[TCP Listener]");
+        RemoteUser? user = GetUser(remoteClient);
         if (user is null)
         {
             remoteClient.Dispose();
             return;
         }
-        if (!user.IsAuthenticated)
-        {
-            DisposeStream(user);
-            return;
-        }
 
-        LogUtil.Log("Connection authenticated. Attempting to authenticate the user...", "[TCP Listener]");
+        LogUtil.Log("Attempting to authenticate the user...", "[TCP Listener]");
         var auth = await AuthenticateUser(user, token).ConfigureAwait(false);
-        if (auth is null)
+        if (auth is null || !user.IsAuthenticated)
         {
             await SendServerConfirmation(user, false, token).ConfigureAwait(false);
             DisposeStream(user, auth);
@@ -342,7 +342,7 @@ public class ServerConnection
         _semaphore_Z3.Release();
     }
 
-    private static async Task<RemoteUser?> AuthenticateConnection(TcpClient client)
+    private static RemoteUser? GetUser(TcpClient client)
     {
         try
         {
@@ -350,17 +350,11 @@ public class ServerConnection
             stream.Socket.ReceiveTimeout = DefaultTimeout;
             stream.Socket.SendTimeout = DefaultTimeout;
 
-            var authStream = new NegotiateStream(stream, false);
-            var user = new RemoteUser(client, authStream);
-
-            await authStream.AuthenticateAsServerAsync().ConfigureAwait(false);
-            user.IsAuthenticated = true;
-            LogUtil.Log("Initial authentication complete.", "[Connection Authentication]");
-            return user;
+            return new RemoteUser(client, stream);
         }
         catch (Exception ex)
         {
-            LogUtil.Log($"Failed to authenticate user.\n{ex.Message}\n{ex.InnerException}", "[Connection Authentication]");
+            LogUtil.Log($"Failed to get user.\n{ex.Message}\n{ex.InnerException}", "[Connection Authentication]");
             return null;
         }
     }
@@ -371,7 +365,7 @@ public class ServerConnection
         try
         {
             byte[] authBytes = new byte[688];
-            _ = await user.Stream.ReadAsync(authBytes, token).ConfigureAwait(false);
+            await user.Stream.ReadAsync(authBytes, token).ConfigureAwait(false);
             var text = Encoding.Unicode.GetString(authBytes);
             authObj = JsonConvert.DeserializeObject<UserAuth>(text);
         }
@@ -404,6 +398,7 @@ public class ServerConnection
 
         await SendServerConfirmation(user, true, token).ConfigureAwait(false);
         user.UserAuth = authObj;
+        user.IsAuthenticated = true;
         return authObj;
     }
 
